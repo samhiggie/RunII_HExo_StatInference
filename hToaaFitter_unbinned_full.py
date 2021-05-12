@@ -219,6 +219,10 @@ for mass in sigIn.keys():
 #bkgfitModel = ROOT.RooExtendPdf("bkg","bkg",bkgfit, norm_bkg)
 #sigfitModel = ROOT.RooExtendPdf("sig","sig",sigfit, norm_sig)
 #making overall signal and bkg in single category
+
+
+
+
 ######################################################################################################
 ''' FF Plotting and Fitting Area
 '''
@@ -310,6 +314,8 @@ for mass in sigIn.keys():
 
     sig[mass].plotOn(massFrame)
     fitresult = sigfit[mass].fitTo(sig[mass],ROOT.RooFit.Range(sigIn[mass][1],sigIn[mass][2]), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+    #fitresult = sigfit[mass].fitTo(sig[mass],ROOT.RooFit.ExternalConstraints(ROOT.RooArgSet(constraint_signal_0)),ROOT.RooFit.Range(sigIn[mass][1],sigIn[mass][2]), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+
     sigfit[mass].paramOn(massFrame)
     #cout<< rrv->getVal() <<"  +/-  "<<rrv->getError();
     print "sig "+mass+" fit results: "
@@ -329,6 +335,120 @@ for mass in sigIn.keys():
     c.SaveAs("DiMuonMass_sig_"+mass+"_"+args.output+".pdf")
     c.SaveAs("DiMuonMass_sig_"+mass+"_"+args.output+".png")
     c.Clear()
+
+######################################################################################################
+'''Setting up the Interpolation 
+'''
+######################################################################################################
+from array import array 
+#means = ROOT.RooDataSet("means","means",ROOT.RooArgSet(Mmmc))
+
+#tryfing with a tree
+# constraintTree = ROOT.TTree("constraintTree","constraintTree")
+# mean  = array('f',[0])
+# meanerr  = array('f',[0])
+# constraintTree.Branch("mean",  mean,  'mean/F')
+# constraintTree.Branch("meanerr",  meanerr,  'meanerr/F')
+# for mass in sigIn.keys():
+#    mean[0] = fitParams[mass][1].getVal()
+#    #print "mass ",mass,"  fitted mass  ",mean
+#    meanerr[0] = fitParams[mass][1].getError()
+#    constraintTree.Fill()
+# constraintFile = ROOT.TFile.Open("constraintFile.root","RECREATE")
+# constraintFile.cd()
+# constraintTree.Write()
+# constraintTree.Print()
+# constraintFile.Write()
+# constraintFile.Close()
+# cfile = ROOT.TFile.Open("constraintFile.root","READ")
+# cfile.cd()
+# constraintTree = cfile.Get("constraintTree")
+
+# for count, entry in enumerate(constraintTree) :
+#     print "mean ",entry.mean
+#constraintTree.Write()
+#exit()
+
+#Mmmc = ROOT.RooRealVar("mean","m_{#mu#mu}", 16.0, 66.0)
+#Mmmce = ROOT.RooRealVar("meanerr","m_{#mu#mu}", 0, 10)
+#means = ROOT.RooDataSet("meandataset","meandataset",ROOT.RooArgSet(Mmmc), ROOT.RooFit.Import(constraintTree))
+#meanserr = ROOT.RooDataSet("meanerrdataset","meanerrdataset",ROOT.RooArgSet(Mmmce), ROOT.RooFit.Import(constraintTree))
+#cs0 = ROOT.RooRealVar("cs0","cs0",40.0,0.0,100.0)
+#cs1 = ROOT.RooRealVar("cs1","cs1",5.0,0.0,20.0)
+#cs2 = ROOT.RooRealVar("cs2","cs2",5.0,-20.0,20.0)
+# cs0_sq = ROOT.RooFormulaVar("cs0_sq","@0*@1",ROOT.RooArgList(cs0,cs0))
+# cs1_sq = ROOT.RooFormulaVar("cs1_sq","@0*@1",ROOT.RooArgList(cs1,cs1))
+# cs2_sq = ROOT.RooFormulaVar("cs2_sq","@0*@1",ROOT.RooArgList(cs2,cs2))
+#Mmm = ROOT.RooRealVar("mll","m_{#mu#mu}", 16, 66)
+#constraint_signal_0 = ROOT.RooPolynomial("MeanPoly","MeanPoly",Mmm, ROOT.RooArgList(cs0,cs1,cs2))
+#overmass = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total", 16.0, 66.0)
+#massFrame = overmass.frame()
+#massFrame = fitParams["a40"][0].frame()
+
+meanfit = ROOT.TF1("poly","(x)",16,66)
+meangraph = ROOT.TGraphErrors()
+
+for num, mass in enumerate(sigIn.keys()):
+   meangraph.SetPoint(num,float(mass.split("a")[1]),fitParams[mass][1].getVal())
+   meangraph.SetPointError(num,1.0,fitParams[mass][1].getError())
+
+c = ROOT.TCanvas("c", "", 600, 600)
+c.cd()
+ROOT.gStyle.SetOptStat(1)
+ROOT.gStyle.SetOptFit(1)
+
+
+meangraph.Draw("AP")
+meangraph.Fit(meanfit)
+meanfit.SetName("mean")
+meanfit.SetTitle("mean")
+meanfit.Draw("same")
+
+#massFrame.Draw()
+#massFrame = overmass.frame()
+#means.plotOn(massFrame)
+
+
+#constraint_signal_0 = ROOT.RooPolynomial("MeanPoly","MeanPoly",Mmmc, ROOT.RooArgList(cs0,cs1))
+#constraint_signal_0 = ROOT.RooBernstein("MeanPoly","MeanPoly",Mmmc, ROOT.RooArgList(cs0_sq,cs1_sq,cs2_sq)) #constant only
+#fitresult_constraint_0 = constraint_signal_0.fitTo(means, ROOT.RooFit.Range(16, 66), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+#constraint_signal_0.paramOn(massFrame)
+
+
+#constraint_signal_0.plotOn(massFrame, ROOT.RooFit.LineColor(ROOT.kGreen), ROOT.RooFit.LineStyle(ROOT.kDashed))
+#massFrame.Draw()
+
+c.SaveAs("DiMuonMass_MeanConstraint_"+args.output+".pdf")
+c.SaveAs("DiMuonMass_MeanConstraint_"+args.output+".png")
+c.Clear()
+
+######################################################################################################
+''' Generating Signal Points from Interpolation
+'''
+######################################################################################################
+signaltemplates = {}
+signaldatasets = {}
+x = {}
+m = {}
+s = {}
+
+for mass in range(16,66):
+   massEval = meanfit.Eval(mass)
+   print "evaluation of poly at ",mass," is ",massEval, " generating signal template "
+   x[str(mass)] = ROOT.RooRealVar("x",    "x",massEval-2.0,massEval+2.0)
+   m[str(mass)] = ROOT.RooRealVar("mean",    "mean",massEval,"GeV")
+   s[str(mass)] = ROOT.RooRealVar("sigma",    "sigma",1.0,"GeV")
+   signaltemplates[str(mass)] = ROOT.RooGaussian("sig_"+str(mass),   "sig_"+str(mass),x[str(mass)], m[str(mass)], s[str(mass)] )
+        #ROOT.RooRealVar("mll",    "m_{#mu #mu}",massEval-2,massEval+2),#works for fine binning
+        #Mmm,
+        #Mmm,#works for fine binning
+        #ROOT.RooRealVar("mean",    "mean",massEval,"GeV"),#works for fine binning
+        #ROOT.RooRealVar("sigma",    "sigma",1.0,"GeV")) #sigma
+   #genNorm = 1000
+   #signaldatasets[str(mass)] = ROOT.RooDataSet(signaltemplates[str(mass)].generate(ROOT.RooArgSet(x),genNorm))
+   #signaltemplates[str(mass)].fitTo(signaldatasets[str(mass)], ROOT.RooFit.Range(massEval-2,massEval+2),ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+   
+
 
 #overmass = ROOT.RooRealVar("MH",    "m_{#mu #mu} Total", 11.0, 65.0)
 #overmass = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total", 38.0, 42.0)
@@ -369,9 +489,17 @@ FFfit.SetName("FF")
 for mass in sigIn.keys():
     sigfit[mass].SetName("sig"+mass)
     getattr(workspace,'import')(sigfit[mass],ROOT.RooFit.RenameVariable("mll","MH"))
+#importing the signaltemplates
+for mass in signaltemplates.keys():
+    #signaltemplates[mass].SetName("sigtemplate"+mass)
+    getattr(workspace,'import')(signaltemplates[mass],ROOT.RooFit.RenameVariable("x","MH"))
 #try to rename mll to MH via
 getattr(workspace,'import')(ZZfit,ROOT.RooFit.RenameVariable("mll","MH"))
 getattr(workspace,'import')(FFfit,ROOT.RooFit.RenameVariable("mll","MH"))
+#saving constraints
+#getattr(workspace,'import')(constraint_signal_0)
+
+
 
 workspace.Print()
 
