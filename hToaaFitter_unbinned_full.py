@@ -13,6 +13,7 @@
 '''
 #########################
 import ROOT
+import numpy as np
 from datetime import datetime
 import argparse
 
@@ -385,12 +386,16 @@ from array import array
 #massFrame = overmass.frame()
 #massFrame = fitParams["a40"][0].frame()
 
-meanfit = ROOT.TF1("poly","(x)",16,66)
+meanfit = ROOT.TF1("meanfit","pol0",16,66)
+normfit = ROOT.TF1("normfit","pol0",0.00001,100000.0)
 meangraph = ROOT.TGraphErrors()
+normgraph = ROOT.TGraphErrors()
 
 for num, mass in enumerate(sigIn.keys()):
    meangraph.SetPoint(num,float(mass.split("a")[1]),fitParams[mass][1].getVal())
    meangraph.SetPointError(num,1.0,fitParams[mass][1].getError())
+   normgraph.SetPoint(num,float(mass.split("a")[1]),sig[mass].sumEntries())
+   normgraph.SetPointError(num,1.0,np.sqrt(sig[mass].sumEntries()))
 
 c = ROOT.TCanvas("c", "", 600, 600)
 c.cd()
@@ -427,6 +432,7 @@ c.Clear()
 '''
 ######################################################################################################
 signaltemplates = {}
+signalnorms = {}
 signaldatasets = {}
 x = {}
 m = {}
@@ -434,6 +440,8 @@ s = {}
 
 for mass in range(16,66):
    massEval = meanfit.Eval(mass)
+   normEval = normfit.Eval(mass)
+   signalnorms[str(mass)] = normEval 
    print "evaluation of poly at ",mass," is ",massEval, " generating signal template "
    x[str(mass)] = ROOT.RooRealVar("x",    "x",massEval-2.0,massEval+2.0)
    m[str(mass)] = ROOT.RooRealVar("mean",    "mean",massEval,"GeV")
@@ -484,18 +492,22 @@ for mass in range(16,66):
 workspace = ROOT.RooWorkspace("w")
 
 getattr(workspace,'import')(data,ROOT.RooFit.RenameVariable("mll","MH"))
+#getattr(workspace,'import')(data)
 ZZfit.SetName("ZZ")
 FFfit.SetName("FF")
 for mass in sigIn.keys():
     sigfit[mass].SetName("sig"+mass)
-    getattr(workspace,'import')(sigfit[mass],ROOT.RooFit.RenameVariable("mll","MH"))
+    getattr(workspace,'import')(sigfit[mass],ROOT.RooFit.RenameVariable("g1Mean_"+str(mass),"MH"))
 #importing the signaltemplates
 for mass in signaltemplates.keys():
     #signaltemplates[mass].SetName("sigtemplate"+mass)
-    getattr(workspace,'import')(signaltemplates[mass],ROOT.RooFit.RenameVariable("x","MH"))
+    getattr(workspace,'import')(signaltemplates[mass],ROOT.RooFit.RenameVariable("mean","MH"))
 #try to rename mll to MH via
 getattr(workspace,'import')(ZZfit,ROOT.RooFit.RenameVariable("mll","MH"))
 getattr(workspace,'import')(FFfit,ROOT.RooFit.RenameVariable("mll","MH"))
+#getattr(workspace,'import')(ZZfit)
+#getattr(workspace,'import')(FFfit)
+
 #saving constraints
 #getattr(workspace,'import')(constraint_signal_0)
 
@@ -504,11 +516,60 @@ getattr(workspace,'import')(FFfit,ROOT.RooFit.RenameVariable("mll","MH"))
 workspace.Print()
 
 workspace.writeToFile("HToAAWorkspace_full_"+args.output+".root")
-
-
 del workspace
-#sigCat[0].plotOn(massFrame[0])
 
+# ##iterpolated datacard
+# masses = signaltemplate.keys()
+# masses.sort()
+# ##Make the datacard
+# outFile = open("datacard_full_"+args.output+".txt","w")#write mode
+
+# outFile.write("imax 1\n") #number of bins - only one category ... no control region
+# outFile.write("jmax {0:10d}\n".format(len(sigIn.keys())+1)) #number of processes minus 1
+# outFile.write("kmax *\n") #number of nuisance parameters
+# outFile.write("---------------\n")
+# #outFile.write("shapes * * HToAAWorkspace_combined.root w:$PROCESS\n")
+# outFile.write("shapes * bin1 HToAAWorkspace_full_"+args.output+".root w:$PROCESS\n")
+# outFile.write("---------------\n")
+
+# outFile.write("bin         bin1   \n")
+# #outFile.write("observation   "+str(bkgHists.sumEntries())+"\n")
+# outFile.write("observation   -1 \n") # for parametric fit this needs to be -1
+
+# outFile.write("------------------------------\n")
+# outFile.write("bin                    ")
+# for mass in masses:
+#     outFile.write(" bin1 ")
+# outFile.write("bin1 bin1 \n")
+# outFile.write("process                ")
+# for mass in masses:
+#     outFile.write("sig_{0:s}  ".format(mass))
+# outFile.write("                                  ZZ      FF\n")
+# outFile.write("process                ")
+# for pronum in range(len(masses)+2):
+#     outFile.write(str((pronum - len(masses)) + 2)+" ") #num of signal + backgrounds (2)
+# outFile.write("\n")
+# #outFile.write("process                 -9 -8 -7 -6 -5 -4 -3 -2 -1 0  1  2\n")
+# #outFile.write("rate                   "+str(sigtree.GetEntries())+"   "+str(bkgtree.GetEntries())+"   \n")
+# outFile.write("rate                   ")
+# for mass in masses:
+#     outFile.write(str(signalnorms[mass].sumEntries())+" ")
+# outFile.write(str(ZZ.sumEntries())+" "+str(FF.sumEntries())+"  \n")
+# outFile.write("------------------------------\n")
+# outFile.write("lumi     lnN              1.1    1.0    1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 \n")
+# for mass in masses:
+#     outFile.write("mean_{0:s}  param ".format(mass)+str(m[mass].getVal())+" "+str(m[mass].getError())+"\n") # form of shape paramters in fit include "name param mean std"
+#     outFile.write("sigma_{0:s}  param ".format(mass)+str(s[mass].getVal())+" "+str(s[mass].getError())+"\n") # form of shape paramters in fit include "name param mean std"
+
+
+# outFile.close()
+
+
+
+# exit()
+
+
+masses = sigIn.keys()
 masses = sigIn.keys()
 masses.sort()
 ##Make the datacard
@@ -562,17 +623,21 @@ outFile.close()
 '''
 ######################################################################################################
 #import data and PDF into workspaco
+masses = sigIn.keys()
 for mass in masses:
     workspace = ROOT.RooWorkspace("w")
 
     getattr(workspace,'import')(data,ROOT.RooFit.RenameVariable("mll","MH"))
+    #getattr(workspace,'import')(data)
     ZZfit.SetName("ZZ")
     FFfit.SetName("FF")
     sigfit[mass].SetName("sig")
-    getattr(workspace,'import')(sigfit[mass],ROOT.RooFit.RenameVariable("mll","MH"))
+    getattr(workspace,'import')(sigfit[mass],ROOT.RooFit.RenameVariable("g1Mean_"+str(mass),"MH"))
     #try to rename mll to MH via
     getattr(workspace,'import')(ZZfit,ROOT.RooFit.RenameVariable("mll","MH"))
     getattr(workspace,'import')(FFfit,ROOT.RooFit.RenameVariable("mll","MH"))
+    #getattr(workspace,'import')(ZZfit)
+    #getattr(workspace,'import')(FFfit)
 
     workspace.Print()
 
@@ -609,9 +674,11 @@ for mass in masses:
     outFile.write(str(ZZ.sumEntries())+" "+str(FF.sumEntries())+"  \n")
     outFile.write("------------------------------\n")
     outFile.write("lumi     lnN              1.1    1.0    1.0  \n")
-    for mass in masses:
-        outFile.write("g1Mean_{0:s}  param ".format(mass)+str(fitParams[mass][1].getVal())+" "+str(fitParams[mass][1].getError())+"\n") # form of shape paramters in fit include "name param mean std"
-        outFile.write("sigmaM_{0:s}  param ".format(mass)+str(fitParams[mass][2].getVal())+" "+str(fitParams[mass][2].getError())+"\n") # form of shape paramters in fit include "name param mean std"
+    outFile.write("g1Mean_{0:s}  param ".format(mass)+str(fitParams[mass][1].getVal())+" "+str(fitParams[mass][1].getError())+"\n") # form of shape paramters in fit include "name param mean std"
+    outFile.write("sigmaM_{0:s}  param ".format(mass)+str(fitParams[mass][2].getVal())+" "+str(fitParams[mass][2].getError())+"\n") # form of shape paramters in fit include "name param mean std"
+    # for mass in masses:
+    #     outFile.write("g1Mean_{0:s}  param ".format(mass)+str(fitParams[mass][1].getVal())+" "+str(fitParams[mass][1].getError())+"\n") # form of shape paramters in fit include "name param mean std"
+    #     outFile.write("sigmaM_{0:s}  param ".format(mass)+str(fitParams[mass][2].getVal())+" "+str(fitParams[mass][2].getError())+"\n") # form of shape paramters in fit include "name param mean std"
 
 
 
