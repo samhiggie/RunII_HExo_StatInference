@@ -38,6 +38,8 @@ combine -M AsymptoticLimits -m 60 -n _mass_a60_mmmt --run blind datacard_full_ma
 echo "hadding the files"
 rm higgsCombine_aa_mmmt_best.root
 hadd higgsCombine_aa_mmmt_best.root higgsCombine_mass_a*_mmmt.AsymptoticLimits.mH*.root
+root -l -b -q 'plotLimit.C+("aa","mmmt",2)'
+
 #
 #combine -M AsymptoticLimits -m 20 -n _mass_a20_mmet --run blind datacard_full_mass_a20_${mainout}_mmet.txt
 #combine -M AsymptoticLimits -m 25 -n _mass_a25_mmet --run blind datacard_full_mass_a25_${mainout}_mmet.txt

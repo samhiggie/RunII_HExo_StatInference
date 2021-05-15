@@ -88,7 +88,8 @@ pdfs = {}
 for file in sigIn.keys():
     fitParams[file] = [
         ROOT.RooRealVar("mll",    "m_{#mu #mu}", sigIn[file][1], sigIn[file][2]),#works for fine binning
-        #ROOT.RooRealVar("MH",    "m_{#mu #mu}", 15.0, 60.0),
+        #ROOT.RooRealVar("MH",    "m_{#mu #mu}", sigIn[file][3], sigIn[file][1], sigIn[file][2], "GeV"),
+        #ROOT.RooRealVar("MH",    "m_{#mu #mu}", 14.0, 63.0),
         #ROOT.RooRealVar("mll",    "m_{#mu #mu}", 38.0, 42.0),
         ROOT.RooRealVar("g1Mean_"+str(file),   "mean of first gaussian",    sigIn[file][3], sigIn[file][1], sigIn[file][2], "GeV"),
         ROOT.RooRealVar("sigmaM_"+str(file),  "#sigma of m_{#mu #mu}",1.0, 0.0,  10.0, "GeV")
@@ -386,14 +387,16 @@ from array import array
 #massFrame = overmass.frame()
 #massFrame = fitParams["a40"][0].frame()
 
-meanfit = ROOT.TF1("meanfit","pol0",16,66)
-normfit = ROOT.TF1("normfit","pol0",0.00001,100000.0)
+meanfit = ROOT.TF1("meanfit","pol1",16,66)
+#normfit = ROOT.TF1("normfit","pol0",0.00001,100000.0)
+normfit = ROOT.TF1("normfit","pol1",16,66)
 meangraph = ROOT.TGraphErrors()
 normgraph = ROOT.TGraphErrors()
 
 for num, mass in enumerate(sigIn.keys()):
    meangraph.SetPoint(num,float(mass.split("a")[1]),fitParams[mass][1].getVal())
    meangraph.SetPointError(num,1.0,fitParams[mass][1].getError())
+   #print "sig sum entries ",sig[mass].sumEntries()
    normgraph.SetPoint(num,float(mass.split("a")[1]),sig[mass].sumEntries())
    normgraph.SetPointError(num,1.0,np.sqrt(sig[mass].sumEntries()))
 
@@ -427,6 +430,16 @@ c.SaveAs("DiMuonMass_MeanConstraint_"+args.output+".pdf")
 c.SaveAs("DiMuonMass_MeanConstraint_"+args.output+".png")
 c.Clear()
 
+normgraph.Draw("AP")
+normgraph.Fit(normfit)
+normfit.SetName("norm")
+normfit.SetTitle("norm")
+normfit.Draw("same")
+
+c.SaveAs("DiMuonMass_NormConstraint_"+args.output+".pdf")
+c.SaveAs("DiMuonMass_NormConstraint_"+args.output+".png")
+c.Clear()
+
 ######################################################################################################
 ''' Generating Signal Points from Interpolation
 '''
@@ -437,14 +450,20 @@ signaldatasets = {}
 x = {}
 m = {}
 s = {}
+#overmass = ROOT.RooRealVar("MH",    "m_{#mu #mu} Total", 38.0, 42.0)
 
 for mass in range(16,66):
    massEval = meanfit.Eval(mass)
    normEval = normfit.Eval(mass)
    signalnorms[str(mass)] = normEval 
-   print "evaluation of poly at ",mass," is ",massEval, " generating signal template "
-   x[str(mass)] = ROOT.RooRealVar("x",    "x",massEval-2.0,massEval+2.0)
-   m[str(mass)] = ROOT.RooRealVar("mean",    "mean",massEval,"GeV")
+   print "evaluation of mean at ",mass," is ",massEval, " generating signal template "
+   print "evaluation of norm at ",mass," is ",normEval
+   #x[str(mass)] = ROOT.RooRealVar("x",    "x",massEval-2.0,massEval+2.0)
+   x[str(mass)] = ROOT.RooRealVar("mll",    "mll",massEval-2.0,massEval+2.0)
+   #x[str(mass)] = ROOT.RooRealVar("mll",    "mll",14.0,63.0)
+   m[str(mass)] =ROOT.RooRealVar("mean",    "mean",massEval,"GeV")
+   #m[str(mass)] = ROOT.RooRealVar("MH",    "signal mean", massEval, 14.0, 63.0,"GeV")
+   #m[str(mass)] = ROOT.RooRealVar("MH",    "signal mean", massEval,massEval-2.0,massEval+2.0,"GeV")
    s[str(mass)] = ROOT.RooRealVar("sigma",    "sigma",1.0,"GeV")
    signaltemplates[str(mass)] = ROOT.RooGaussian("sig_"+str(mass),   "sig_"+str(mass),x[str(mass)], m[str(mass)], s[str(mass)] )
         #ROOT.RooRealVar("mll",    "m_{#mu #mu}",massEval-2,massEval+2),#works for fine binning
@@ -491,17 +510,19 @@ for mass in range(16,66):
 #import data and PDF into workspaco
 workspace = ROOT.RooWorkspace("w")
 
-getattr(workspace,'import')(data,ROOT.RooFit.RenameVariable("mll","MH"))
-#getattr(workspace,'import')(data)
+#getattr(workspace,'import')(data,ROOT.RooFit.RenameVariable("mll","MH"))
+getattr(workspace,'import')(data)
 ZZfit.SetName("ZZ")
 FFfit.SetName("FF")
 for mass in sigIn.keys():
     sigfit[mass].SetName("sig"+mass)
     getattr(workspace,'import')(sigfit[mass],ROOT.RooFit.RenameVariable("g1Mean_"+str(mass),"MH"))
+    #getattr(workspace,'import')(sigfit[mass])
 #importing the signaltemplates
 for mass in signaltemplates.keys():
     #signaltemplates[mass].SetName("sigtemplate"+mass)
     getattr(workspace,'import')(signaltemplates[mass],ROOT.RooFit.RenameVariable("mean","MH"))
+    #getattr(workspace,'import')(signaltemplates[mass])
 #try to rename mll to MH via
 getattr(workspace,'import')(ZZfit,ROOT.RooFit.RenameVariable("mll","MH"))
 getattr(workspace,'import')(FFfit,ROOT.RooFit.RenameVariable("mll","MH"))
@@ -570,7 +591,6 @@ del workspace
 
 
 masses = sigIn.keys()
-masses = sigIn.keys()
 masses.sort()
 ##Make the datacard
 outFile = open("datacard_full_"+args.output+".txt","w")#write mode
@@ -623,7 +643,9 @@ outFile.close()
 '''
 ######################################################################################################
 #import data and PDF into workspaco
-masses = sigIn.keys()
+#masses = sigIn.keys()
+masses = signaltemplates.keys()
+masses.sort()
 for mass in masses:
     workspace = ROOT.RooWorkspace("w")
 
@@ -631,15 +653,18 @@ for mass in masses:
     #getattr(workspace,'import')(data)
     ZZfit.SetName("ZZ")
     FFfit.SetName("FF")
-    sigfit[mass].SetName("sig")
-    getattr(workspace,'import')(sigfit[mass],ROOT.RooFit.RenameVariable("g1Mean_"+str(mass),"MH"))
+    signaltemplates[mass].SetName("sig")
+    #getattr(workspace,'import')(sigfit[mass],ROOT.RooFit.RenameVariable("g1Mean_"+str(mass),"MH"))
+    #getattr(workspace,'import')(sigfit[mass])
+    #getattr(workspace,'import')(signaltemplates[mass])
+    getattr(workspace,'import')(signaltemplates[mass],ROOT.RooFit.RenameVariable("mean","MH"))
     #try to rename mll to MH via
     getattr(workspace,'import')(ZZfit,ROOT.RooFit.RenameVariable("mll","MH"))
     getattr(workspace,'import')(FFfit,ROOT.RooFit.RenameVariable("mll","MH"))
     #getattr(workspace,'import')(ZZfit)
     #getattr(workspace,'import')(FFfit)
 
-    workspace.Print()
+    #workspace.Print()
 
     workspace.writeToFile("HToAAWorkspace_full_"+mass+"_"+args.output+".root")
 
@@ -647,8 +672,8 @@ for mass in masses:
     del workspace
     #sigCat[0].plotOn(massFrame[0])
 
-    masses = sigIn.keys()
-    masses.sort()
+    #masses = sigIn.keys()
+    #masses.sort()
     ##Make the datacard
     outFile = open("datacard_full_mass_"+mass+"_"+args.output+".txt","w")#write mode
 
@@ -670,12 +695,13 @@ for mass in masses:
     outFile.write("                 sig          ZZ      FF\n")
     outFile.write("process            0           1       2     \n")
     outFile.write("rate                   ")
-    outFile.write(str(sig[mass].sumEntries())+" ")
+    #outFile.write(str(sig[mass].sumEntries())+" ")
+    outFile.write(str(signalnorms[mass])+" ")
     outFile.write(str(ZZ.sumEntries())+" "+str(FF.sumEntries())+"  \n")
     outFile.write("------------------------------\n")
     outFile.write("lumi     lnN              1.1    1.0    1.0  \n")
-    outFile.write("g1Mean_{0:s}  param ".format(mass)+str(fitParams[mass][1].getVal())+" "+str(fitParams[mass][1].getError())+"\n") # form of shape paramters in fit include "name param mean std"
-    outFile.write("sigmaM_{0:s}  param ".format(mass)+str(fitParams[mass][2].getVal())+" "+str(fitParams[mass][2].getError())+"\n") # form of shape paramters in fit include "name param mean std"
+    #outFile.write("g1Mean_{0:s}  param ".format(mass)+str(fitParams[mass][1].getVal())+" "+str(fitParams[mass][1].getError())+"\n") # form of shape paramters in fit include "name param mean std"
+    #outFile.write("sigmaM_{0:s}  param ".format(mass)+str(fitParams[mass][2].getVal())+" "+str(fitParams[mass][2].getError())+"\n") # form of shape paramters in fit include "name param mean std"
     # for mass in masses:
     #     outFile.write("g1Mean_{0:s}  param ".format(mass)+str(fitParams[mass][1].getVal())+" "+str(fitParams[mass][1].getError())+"\n") # form of shape paramters in fit include "name param mean std"
     #     outFile.write("sigmaM_{0:s}  param ".format(mass)+str(fitParams[mass][2].getVal())+" "+str(fitParams[mass][2].getError())+"\n") # form of shape paramters in fit include "name param mean std"

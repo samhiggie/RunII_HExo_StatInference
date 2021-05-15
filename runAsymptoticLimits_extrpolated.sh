@@ -15,10 +15,12 @@ then
     datacardnum=${i}
 fi 
 echo "working on mass point "${i}
-combine -M AsymptoticLimits -m ${i} -n _mass_${i}_mmmt --run blind datacard_full_mass_a${datacardnum}_${mainout}.txt
+combine -M AsymptoticLimits -m ${i} -n _mass_${i}_mmmt --run blind --freezeParameters MH datacard_full_mass_${datacardnum}_${mainout}_mmmt.txt 
 done 
     
 
+
 echo "hadding the files"
 rm higgsCombine_aa_mmmt_best.root
-hadd higgsCombine_aa_mmmt_best.root higgsCombine_mass_a*_mmmt.AsymptoticLimits.mH*.root
+hadd higgsCombine_aa_mmmt_best.root higgsCombine_mass_*_mmmt.AsymptoticLimits.mH*.root
+root -l -b -q 'plotLimit.C+("aa","mmmt",2)'
