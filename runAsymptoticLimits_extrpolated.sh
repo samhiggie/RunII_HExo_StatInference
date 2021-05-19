@@ -15,7 +15,9 @@ then
     datacardnum=${i}
 fi 
 echo "working on mass point "${i}
-combine -M AsymptoticLimits -m ${i} -n _mass_${i}_mmmt --run blind --freezeParameters MH datacard_full_mass_${datacardnum}_${mainout}_mmmt.txt 
+#combine -M AsymptoticLimits -m ${i} -n _mass_${i}_mmmt --run blind --freezeParameters MH datacard_full_mass_${datacardnum}_${mainout}_mmmt.txt 
+#combine -M AsymptoticLimits -m ${i} -n _mass_${i}_mmmt --run blind datacard_full_mass_${datacardnum}_${mainout}_mmmt.txt 
+combine -M AsymptoticLimits -m ${i} -n _mass_${i}_mmmt --X-rtd ADDNLL_RECURSIVE=0 --freezeParameters MH --run blind datacard_full_${mainout}_mmmt.txt  
 done 
     
 
