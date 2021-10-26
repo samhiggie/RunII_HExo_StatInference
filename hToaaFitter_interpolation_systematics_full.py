@@ -1,0 +1,712 @@
+#########################
+#Author: Sam Higginbotham
+'''
+
+* File Name : hToaaFitter_unbinned.py
+
+* Purpose : Fit the dimuon mass spectra of the pseudoscalar higgs candidate ... local version for now
+
+* Creation Date : 23-10-2020
+
+* Last Modified :
+
+'''
+#########################
+import ROOT
+import ROOT.RooFit
+import numpy as np
+from datetime import datetime
+import argparse
+parser = argparse.ArgumentParser(description="make full plots from root files containing histograms")
+#parser.add_arguement('--CategoryFiles',nargs="+",help="Select the files containing the categories for the datacards")
+parser.add_argument("-i",  "--input", default="",  help="postfix string from previous MakeDataCard step")
+parser.add_argument("-id",  "--inputDir", default="",  help="postfix string from previous MakeDataCard step")
+parser.add_argument("-o",  "--output", default="",  help="postfix string")
+parser.add_argument("-ch",  "--channel", default="mmmt",  help="postfix string")
+parser.add_argument("-c",  "--categories", default="categories.yaml",  help="categories yaml file")
+parser.add_argument("-csv",  "--csvfile", default="MCsamples_2016_v6_yaml.csv",  help="categories yaml file")
+parser.add_argument("-p",  "--processes", default="processes_special.yaml",  help="processes yaml file")
+parser.add_argument("-cards",  "--cards", default=False,action='store_true',  help="create the datacards")
+parser.add_argument("-workspace",  "--workspace", default=True,action='store_false',  help="create the workspace")
+parser.add_argument("-dd",  "--datadriven", default=False,action='store_true',  help="Use DataDriven Method")
+parser.add_argument("-ddZH",  "--datadrivenZH", default=False,action='store_true',  help="Use DataDriven Method")
+parser.add_argument("-mc",  "--mc", default=False,action='store_true',  help="Use only mc skip data")
+parser.add_argument("-mhs",  "--mhs", default=False,action='store_true',  help="make file containing histograms for datacards")
+parser.add_argument("-fh",  "--fh", default=False,action='store_true',  help="Make Finalized histograms")
+parser.add_argument("-ss",  "--signalScale", default=1.0,  help="Scale the Signal")
+args = parser.parse_args()
+
+
+######################################################################################################
+'''
+global scope variables for memory management
+'''
+######################################################################################################
+dataHists={}
+datatree={}
+sigtree={}
+bkgtree={}
+FFtree={}
+ZZtree={}
+sigIn={}
+pdfs={}
+fitParams={}
+fitModels={}
+sigfit={}
+varargset={}
+sig={}
+
+FF={}
+FFfit={}
+norm_FF={}
+FF_finalweight={}
+c0_bkg_sq={}
+c1_bkg_sq={}
+c2_bkg_sq={}
+c3_bkg_sq={}
+c4_bkg_sq={}
+ZZ_Mmm={}
+ZZ={}
+ZZfit={}
+norm_ZZ={}
+ZZ_finalweight={}
+c0_ZZ={}
+c1_ZZ={}
+c2_ZZ={}
+c3_ZZ={}
+c4_ZZ={}
+c0_bkg={}
+c1_bkg={}
+c2_bkg={}
+c3_bkg={}
+c4_bkg={}
+c0_ZZ_sq={}
+c1_ZZ_sq={}
+c2_ZZ_sq={}
+c3_ZZ_sq={}
+c4_ZZ_sq={}
+data={}
+bkg={}
+Mmm={}
+finalweight={}
+
+meanfit={}
+normfit={}
+sigmafit={}
+meangraph={}
+normgraph={}
+sigmagraph={}
+signaltemplates = {}
+signalnorms = {}
+signaldatasets = {}
+x = {}
+m= {}
+s = {}
+MH={}
+Mll={}
+MHerr={}
+FF_Mmm={}
+mean_c0={}
+mean_c1={}
+mean_c2={}
+mean_c3={}
+intMean={}
+sigma_c0={}
+sigma_c1={}
+sigma_c2={}
+sigma_c3={}
+intSigma={}
+norm_c0={}
+norm_c1={}
+norm_c2={}
+norm_c3={}
+intNorm={}
+massEval = {}
+normEval = {}
+sigmaEval = {}
+intSignalTemplate = {}
+overmass={}
+massFrame={}
+fitresult={}
+
+signalpullup   = 0.0
+signalpulldown = 0.0
+FFpullup       = 0.0
+FFpulldown     = 0.0
+FFpullup       = 0.0
+ZZpulldown     = 0.0
+
+
+#systematics =[ "Nominal" ]
+
+systematics =[ "Nominal","scale_eUp","scale_eDown","scale_m_etalt1p2Up","scale_m_etalt1p2Down",
+               "scale_m_eta1p2to2p1Up","scale_m_eta1p2to2p1Down","scale_m_etagt2p1Up","scale_m_etagt2p1Down",
+               "scale_t_1prongUp","scale_t_1prongDown","scale_t_1prong1pizeroUp","scale_t_1prong1pizeroDown",
+               "scale_t_3prongUp","scale_t_3prongDown","scale_t_3prong1pizeroUp","scale_t_3prong1pizeroDown"]
+
+fileIn = ROOT.TFile.Open(args.input,"READ")
+
+workspace = ROOT.RooWorkspace("w")
+
+
+
+
+######################################################################################################
+'''
+    Function to create the probability density functions that will go into the
+    workspace for the limits
+'''
+######################################################################################################
+def createPDFs(fileIn,systematic):
+
+    #fileIn.cd(args.inputDir) # do I need this?
+    sigIn[systematic]={}
+    sigIn[systematic]["a15"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a15"),13.0,17.0,15.0,ROOT.kRed]
+    sigIn[systematic]["a20"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a20"),18.0,22.0,20.0,ROOT.kOrange]
+    sigIn[systematic]["a25"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a25"),23.0,27.0,25.0,ROOT.kYellow]
+    sigIn[systematic]["a30"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a30"),28.0,32.0,30.0,ROOT.kGreen]
+    sigIn[systematic]["a35"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a35"),33.0,37.0,35.0,ROOT.kBlue]
+    sigIn[systematic]["a40"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a40"),38.0,42.0,40.0,ROOT.kMagenta]
+    sigIn[systematic]["a45"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a45"),43.0,47.0,45.0,ROOT.kViolet]
+    sigIn[systematic]["a50"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a50"),48.0,52.0,50.0,ROOT.kSpring]
+    sigIn[systematic]["a55"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a55"),53.0,57.0,55.0,ROOT.kCyan]
+    sigIn[systematic]["a60"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a60"),58.0,62.0,60.0,ROOT.kAzure]
+
+    #getting the TTrees
+    if not (fileIn.Get(args.inputDir+"/Nominal_data_obs")):
+        datatree[systematic] = fileIn.Get(args.inputDir+"/"+systematic+"_Bkg")
+        FFtree[systematic] = fileIn.Get(args.inputDir+"/"+systematic+"_Bkg")
+        print "ff tree entries ",FFtree[systematic].GetEntries()
+    else:
+        datatree[systematic] = fileIn.Get(args.inputDir+"/"+"Nominal_data_obs")
+        FFtree[systematic] = fileIn.Get(args.inputDir+"/"+systematic+"_Bkg")
+        print "ff tree entries ",FFtree[systematic].GetEntries()
+
+    sigtree[systematic] = fileIn.Get(args.inputDir+"/"+systematic+"_a40")
+    bkgtree[systematic] = fileIn.Get(args.inputDir+"/"+systematic+"_Bkg")
+    bkgtree[systematic].SetName("bkg")
+
+    ZZtree[systematic] = fileIn.Get(args.inputDir+"/"+systematic+"_irBkg")
+
+    fitParams[systematic] = {}
+    dataHists[systematic] = {}
+    fitModels[systematic] = {}
+    pdfs[systematic] = {}
+
+    for file in sigIn[systematic].keys():
+        fitParams[systematic][file] = [
+            ROOT.RooRealVar("mll",    "m_{#mu #mu}", sigIn[systematic][file][1], sigIn[systematic][file][2]),#works for fine binning
+            ROOT.RooRealVar("g1Mean_"+str(file),   "mean of first gaussian",    sigIn[systematic][file][3], sigIn[systematic][file][1], sigIn[systematic][file][2], "GeV"),
+            ROOT.RooRealVar("sigmaM_"+str(file),  "#sigma of m_{#mu #mu}",1.0, 0.0,  10.0, "GeV")
+            ]
+
+    for file in sigIn[systematic].keys():
+        fitModels[systematic][file] = [
+            ROOT.RooGaussian("gaussian_"+str(file),   "first gaussian PDF", fitParams[systematic][file][0], fitParams[systematic][file][1], fitParams[systematic][file][2]),
+            ROOT.RooRealVar("signalEvents_"+str(file), "",  sigtree[systematic].GetEntries(),   0.0, 1000.0),
+            ]
+
+
+    ######################################################################################################
+    ''' Obtaining Data
+    '''
+    ######################################################################################################
+    #data = ROOT.RooDataSet("data_obs","data",ROOT.RooArgSet(fitParams["a40"][0]), ROOT.RooFit.Import(datatree))
+    Mmm[systematic] = ROOT.RooRealVar("mll","m_{#mu#mu}", 16, 66)
+    FF_Mmm[systematic] = ROOT.RooRealVar("mll","m_{#mu#mu}", 16, 66)
+    ZZ_Mmm[systematic] = ROOT.RooRealVar("mll","m_{#mu#mu}", 16, 66)
+    finalweight[systematic] = ROOT.RooRealVar("finalweight","finalweight", 0.0, 3.0)
+
+    data[systematic]  = ROOT.RooDataSet("data_obs","data",ROOT.RooArgSet(Mmm[systematic]), ROOT.RooFit.Import(datatree[systematic]))
+    data[systematic].reduce("mll > 14 && mll < 63")
+
+    #bkg = ROOT.RooDataSet("bkg","bkg ",ROOT.RooArgSet(fitParams["a40"][0]), ROOT.RooFit.Import(bkgtree))
+    bkg[systematic] = ROOT.RooDataSet("bkg","bkg",ROOT.RooArgSet(Mmm[systematic]), ROOT.RooFit.Import(bkgtree[systematic]))
+    bkg[systematic].reduce("mll > 14 && mll < 63")
+
+    varargset[systematic] = {}
+    finalweight[systematic] = {}
+    sig[systematic]={}
+    for mass in sigIn[systematic].keys():
+        finalweight[systematic][mass] = ROOT.RooRealVar("finalweight",   "finalweight",0.0,3.0) # is this the weight in the ttree or just a floating variable in the fit?
+        varargset[systematic][mass]=ROOT.RooArgSet(fitParams[systematic][mass][0],finalweight[systematic][mass])
+        sig[systematic][mass] = ROOT.RooDataSet("sig"+mass,"sig"+mass, varargset[systematic][mass], ROOT.RooFit.Import(sigIn[systematic][mass][0]),ROOT.RooFit.WeightVar(finalweight[systematic][mass]))
+
+    FF_finalweight[systematic] = ROOT.RooRealVar("finalweight","finalweight", 0.0, 3.0)
+    FF[systematic] = ROOT.RooDataSet("FF","FF",ROOT.RooArgSet(FF_Mmm[systematic],FF_finalweight[systematic]), ROOT.RooFit.Import(FFtree[systematic]), ROOT.RooFit.WeightVar("finalweight"))
+    #FF.reduce("mll > 30 && mll < 40")
+    ZZ_finalweight[systematic] = ROOT.RooRealVar("finalweight","finalweight", 0.0, 3.0)
+    ZZ[systematic] = ROOT.RooDataSet("ZZ","ZZ",ROOT.RooArgSet(ZZ_Mmm[systematic],ZZ_finalweight[systematic]), ROOT.RooFit.Import(ZZtree[systematic]), ROOT.RooFit.WeightVar("finalweight"))
+    #FF.reduce("mll > 30 && mll < 40")
+
+    ######################################################################################################
+    '''FF Fit
+    '''
+    ######################################################################################################
+    norm_FF[systematic] = ROOT.RooRealVar("FFfit_norm_"+systematic,   "FF Normalization_"+systematic,FF[systematic].sumEntries(),0.0,10*FF[systematic].sumEntries())
+    #norm_FF = ROOT.RooRealVar("FFfit_norm",   "FF Normalization",0.0,10000.0)
+    #x_bkg = ROOT.RooRealVar("MH","m_{#mu#mu}", sigIn["a40"][1], sigIn["a40"][2]) # is this min and max?
+    c0_bkg[systematic] = ROOT.RooRealVar("c0_bkg_"+systematic,   "coeff. of bernstein 0",0.1,-10.0,10.0)
+    c1_bkg[systematic] = ROOT.RooRealVar("c1_bkg_"+systematic,  "coeff. of bernstein 1",5.0,-20.0,20.0)
+    c2_bkg[systematic] = ROOT.RooRealVar("c2_bkg_"+systematic,   "coeff. of bernstein 2",5.0,-20.0,20.0)
+    c3_bkg[systematic] = ROOT.RooRealVar("c3_bkg_"+systematic,   "coeff. of bernstein 3",5.0,-20.0,20.0)
+    c4_bkg[systematic] = ROOT.RooRealVar("c4_bkg_"+systematic,   "coeff. of bernstein 4",5.0,-20.0,20.0)
+
+    c0_bkg_sq[systematic] = ROOT.RooFormulaVar("c0_bkg_sq_"+systematic,"@0*@1",ROOT.RooArgList(c0_bkg[systematic],c0_bkg[systematic]))
+    c1_bkg_sq[systematic] = ROOT.RooFormulaVar("c1_bkg_sq_"+systematic,"@0*@1",ROOT.RooArgList(c1_bkg[systematic],c1_bkg[systematic]))
+    c2_bkg_sq[systematic] = ROOT.RooFormulaVar("c2_bkg_sq_"+systematic,"@0*@1",ROOT.RooArgList(c2_bkg[systematic],c2_bkg[systematic]))
+    c3_bkg_sq[systematic] = ROOT.RooFormulaVar("c3_bkg_sq_"+systematic,"@0*@1",ROOT.RooArgList(c3_bkg[systematic],c3_bkg[systematic]))
+    c4_bkg_sq[systematic] = ROOT.RooFormulaVar("c4_bkg_sq_"+systematic,"@0*@1",ROOT.RooArgList(c4_bkg[systematic],c4_bkg[systematic]))
+
+    FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg_sq[systematic],c1_bkg_sq[systematic],c2_bkg_sq[systematic],c3_bkg_sq[systematic])) #constant only
+
+    ######################################################################################################
+    '''ZZ Fit
+    '''
+    ######################################################################################################
+    norm_ZZ[systematic] = ROOT.RooRealVar("ZZfit_norm_"+systematic,   "ZZ Normalization_"+systematic,ZZ[systematic].sumEntries(),0.0,10*ZZ[systematic].sumEntries())
+    c0_ZZ[systematic]= ROOT.RooRealVar("c0_ZZ_"+systematic,   "coeff. of bernstein 0",10.0,-1010.0,1010.0)
+    c1_ZZ[systematic]= ROOT.RooRealVar("c1_ZZ_"+systematic,  "coeff. of bernstein 1",10.0,-1010.0,1010.0)
+    c2_ZZ[systematic]= ROOT.RooRealVar("c2_ZZ_"+systematic,   "coeff. of bernstein 2",10.0,-1010.0,1010.0)
+    c3_ZZ[systematic]= ROOT.RooRealVar("c3_ZZ_"+systematic,   "coeff. of bernstein 3",10.0,-1010.0,1010.0)
+    c4_ZZ[systematic]= ROOT.RooRealVar("c4_ZZ_"+systematic,   "coeff. of bernstein 4",10.0,-1010.0,1010.0)
+
+    c0_ZZ_sq[systematic]= ROOT.RooFormulaVar("c0_ZZ_sq_"+systematic,"@0*@1",ROOT.RooArgList(c0_ZZ[systematic],c0_ZZ[systematic]))
+    c1_ZZ_sq[systematic]= ROOT.RooFormulaVar("c1_ZZ_sq_"+systematic,"@0*@1",ROOT.RooArgList(c1_ZZ[systematic],c1_ZZ[systematic]))
+    c2_ZZ_sq[systematic]= ROOT.RooFormulaVar("c2_ZZ_sq_"+systematic,"@0*@1",ROOT.RooArgList(c2_ZZ[systematic],c2_ZZ[systematic]))
+    c3_ZZ_sq[systematic]= ROOT.RooFormulaVar("c3_ZZ_sq_"+systematic,"@0*@1",ROOT.RooArgList(c3_ZZ[systematic],c3_ZZ[systematic]))
+
+    ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic],c3_ZZ_sq[systematic])) #constant only
+    ######################################################################################################
+    '''Signal Fit
+    '''
+    ######################################################################################################
+
+    sigfit[systematic] = {}
+    for mass in sigIn[systematic].keys():
+        sigfit[systematic][mass] = ROOT.RooGaussian("sigfit"+mass,   "sigfit"+mass,
+                            fitParams[systematic][mass][0], #mll
+                            fitParams[systematic][mass][1], #mean
+                            fitParams[systematic][mass][2]) #sigma
+
+    # fitresult[systematic] = FFfit.fitTo(FF,ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+    # print "FF fit results: "
+    # fitresult[systematic].Print()
+    return
+
+
+######################################################################################################
+'''
+    Function to create plots and fits for the pdfs
+
+'''
+######################################################################################################
+def createFitsAndPlots(systematic):
+    print "working on sys ",systematic
+    print "ZZ ",ZZ[systematic]
+    print "ZZ fit ",ZZfit[systematic]
+    print "FF ",FF[systematic]
+    print "FF fit ",FFfit[systematic]
+    #print dir(FFfit)
+
+    if systematic == "Nominal":
+        ######################################################################################################
+        ''' FF Plotting and Fitting Area
+        '''
+        ######################################################################################################
+        overmass[systematic] = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total", 16.0, 66.0)
+        #overmass[systematic] = ROOT.RooRealVar("MH",    "m_{#mu #mu} Total", 38.0, 42.0)
+        massFrame[systematic] = overmass[systematic].frame()
+        #massFrame[systematic] = fitParams["a40"][0].frame()
+        c = ROOT.TCanvas("c", "", 600, 600)
+        c.cd()
+        ROOT.gStyle.SetOptStat(1)
+        ROOT.gStyle.SetOptFit(1)
+        massFrame[systematic].Draw()
+        massFrame[systematic] = overmass[systematic].frame()
+
+        ROOT.gPad.SetLeftMargin(0.15)
+        massFrame[systematic].GetYaxis().SetTitleOffset(1.6)
+        ROOT.TGaxis().SetMaxDigits(2)
+
+        #plotting data points
+        FF[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(16))
+
+        fitresult[systematic] = FFfit[systematic].fitTo(FF[systematic],ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+        #fitresult[systematic] = FFfit.fitTo(FF)
+        print "FF fit results: "
+        fitresult[systematic].Print()
+
+        FFfit[systematic].paramOn(massFrame[systematic])
+        FFfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kGreen),
+                     ROOT.RooFit.LineStyle(ROOT.kDashed),
+                     ROOT.RooFit.VisualizeError(fitresult[systematic],1,ROOT.kFALSE),
+                     ROOT.RooFit.FillColor(ROOT.kOrange))
+        FF[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(16))
+        massFrame[systematic].Draw()
+
+        c.SaveAs("DiMuonMass_full_FF_"+systematic+args.output+".pdf")
+        c.SaveAs("DiMuonMass_full_FF_"+systematic+args.output+".png")
+        c.Clear()
+
+    ######################################################################################################
+    ''' ZZ Plotting and Fitting Area
+    '''
+    ######################################################################################################
+    overmass[systematic] = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total", 16.0, 66.0)
+    massFrame[systematic] = overmass[systematic].frame()
+    c = ROOT.TCanvas("c", "", 600, 600)
+    c.cd()
+    ROOT.gStyle.SetOptStat(1)
+    ROOT.gStyle.SetOptFit(1)
+    massFrame[systematic].Draw()
+    massFrame[systematic] = overmass[systematic].frame()
+
+    ZZ[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(16))
+
+    fitresult[systematic] = ZZfit[systematic].fitTo(ZZ[systematic],ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+
+    print "ZZ fit results: "
+    fitresult[systematic].Print()
+
+    ZZfit[systematic].paramOn(massFrame[systematic])
+    ZZfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kGreen),
+                 ROOT.RooFit.LineStyle(ROOT.kDashed),
+                 ROOT.RooFit.VisualizeError(fitresult[systematic],1,ROOT.kFALSE),
+                 ROOT.RooFit.FillColor(ROOT.kOrange))
+    ZZ[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(16))
+    massFrame[systematic].Draw()
+
+    c.SaveAs("DiMuonMass_full_ZZ_"+systematic+args.output+".pdf")
+    c.SaveAs("DiMuonMass_full_ZZ_"+systematic+args.output+".png")
+    c.Clear()
+
+    ######################################################################################################
+    ''' Signal Plotting and Fitting Area
+    '''
+    ######################################################################################################
+    for mass in sigIn[systematic].keys():
+        overmass[systematic] = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total", sigIn[systematic][mass][1], sigIn[systematic][mass][2])
+        massFrame[systematic] = overmass[systematic].frame()
+        massFrame[systematic].Draw()
+        massFrame[systematic] = overmass[systematic].frame()
+
+        sig[systematic][mass].plotOn(massFrame[systematic])
+        fitresult[systematic] = sigfit[systematic][mass].fitTo(sig[systematic][mass],ROOT.RooFit.Range(sigIn[systematic][mass][1],sigIn[systematic][mass][2]), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+        #fitresult[systematic] = sigfit[mass].fitTo(sig[mass],ROOT.RooFit.ExternalConstraints(ROOT.RooArgSet(constraint_signal_0)),ROOT.RooFit.Range(sigIn[mass][1],sigIn[mass][2]), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+
+        sigfit[systematic][mass].paramOn(massFrame[systematic])
+        #cout<< rrv->getVal() <<"  +/-  "<<rrv->getError();
+        print "sig "+mass+" fit results: "
+        fitresult[systematic].Print()
+
+
+        print "signal fit value mean",fitParams[systematic][mass][1].getVal()," error ",fitParams[systematic][mass][1].getError()
+        print "signal fit value sigma",fitParams[systematic][mass][2].getVal()," error ",fitParams[systematic][mass][2].getError()
+
+        sigfit[systematic][mass].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kBlue), ROOT.RooFit.LineStyle(ROOT.kDashed))
+
+        massFrame[systematic].Draw()
+
+        c.SaveAs("DiMuonMass_sig_"+mass+"_"+systematic+args.output+".pdf")
+        c.SaveAs("DiMuonMass_sig_"+mass+"_"+systematic+args.output+".png")
+        c.Clear()
+
+
+
+    return
+
+######################################################################################################
+'''Function to create the interpolated models
+'''
+######################################################################################################
+def createInterpolation(signalpackage):
+    from array import array
+
+    meanfit[systematic] = ROOT.TF1("meanfit_"+systematic,"pol1",16,66)
+    #normfit = ROOT.TF1("normfit","pol0",0.00001,100000.0)
+    normfit[systematic] = ROOT.TF1("normfit_"+systematic,"pol3",16,66)
+    sigmafit[systematic] = ROOT.TF1("sigmafit_"+systematic,"pol3",16,66)
+    meangraph[systematic] = ROOT.TGraphErrors()
+    normgraph[systematic] = ROOT.TGraphErrors()
+    sigmagraph[systematic] = ROOT.TGraphErrors()
+
+    for num, mass in enumerate(sigIn[systematic].keys()):
+       meangraph[systematic].SetPoint(num,float(mass.split("a")[1]),fitParams[systematic][mass][1].getVal())
+       meangraph[systematic].SetPointError(num,1.0,fitParams[systematic][mass][1].getError())
+       #print "sig sum entries ",sig[mass].sumEntries()
+       normgraph[systematic].SetPoint(num,float(mass.split("a")[1]),sig[systematic][mass].sumEntries())
+       normgraph[systematic].SetPointError(num,1.0,np.sqrt(sig[systematic][mass].sumEntries()))
+       sigmagraph[systematic].SetPoint(num,float(mass.split("a")[1]),fitParams[systematic][mass][2].getVal())
+       sigmagraph[systematic].SetPointError(num,1.0,np.sqrt(fitParams[systematic][mass][2].getError()))
+
+    c = ROOT.TCanvas("c", "", 600, 600)
+    c.cd()
+    ROOT.gStyle.SetOptStat(1)
+    ROOT.gStyle.SetOptFit(1)
+
+
+    meangraph[systematic].Draw("AP")
+    meangraph[systematic].Fit(meanfit[systematic])
+    meanfit[systematic].SetName("mean")
+    meanfit[systematic].SetTitle("mean")
+    meanfit[systematic].GetXaxis().SetTitle("Mass")
+    meanfit[systematic].GetYaxis().SetTitle("Mean Fit Parameter")
+    meanfit[systematic].Draw("same")
+
+    c.SaveAs("DiMuonMass_MeanConstraint_"+systematic+args.output+".pdf")
+    c.SaveAs("DiMuonMass_MeanConstraint_"+systematic+args.output+".png")
+    c.Clear()
+
+    normgraph[systematic].Draw("AP")
+    normgraph[systematic].Fit(normfit[systematic])
+    normfit[systematic].SetName("norm")
+    normfit[systematic].SetTitle("norm")
+    normfit[systematic].GetXaxis().SetTitle("Mass")
+    normfit[systematic].GetYaxis().SetTitle("Norm Fit Parameter")
+    normfit[systematic].Draw("same")
+
+    c.SaveAs("DiMuonMass_NormConstraint_"+systematic+args.output+".pdf")
+    c.SaveAs("DiMuonMass_NormConstraint_"+systematic+args.output+".png")
+    c.Clear()
+
+    sigmagraph[systematic].Draw("AP")
+    sigmagraph[systematic].Fit(sigmafit[systematic])
+    sigmafit[systematic].SetName("sigma")
+    sigmafit[systematic].SetTitle("sigma")
+    sigmafit[systematic].GetXaxis().SetTitle("Mass")
+    sigmafit[systematic].GetYaxis().SetTitle("Sigma Fit Parameter")
+    sigmafit[systematic].Draw("same")
+
+    c.SaveAs("DiMuonMass_SigmaConstraint_"+systematic+args.output+".pdf")
+    c.SaveAs("DiMuonMass_SigmaConstraint_"+systematic+args.output+".png")
+    c.Clear()
+
+    ######################################################################################################
+    ''' Generating Signal Points from Interpolation
+    '''
+    ######################################################################################################
+    signaltemplates[systematic] = {}
+    signalnorms[systematic] = {}
+    signaldatasets[systematic] = {}
+    x[systematic] = {}
+    m[systematic]= {}
+    s[systematic] = {}
+    #overmass[systematic] = ROOT.RooRealVar("MH",    "m_{#mu #mu} Total", 38.0, 42.0)
+
+
+    #try the roo formula var down below when importing into rooworkspace
+    #I need this for EACH mass point? like for the constants in the RooFormulaVar?
+    MH[systematic] = ROOT.RooRealVar("MH","MH_"+systematic, 18, 63)
+    Mll[systematic] = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total_"+systematic, 16.0, 66.0)
+    MHerr[systematic] = ROOT.RooRealVar("MHerr_"+systematic,"MHerr_"+systematic, 0, -4 , 4)
+    #ROOT.RooFormulaVar("intMean","(1+0.002*Mean)*(%.8f +%.8f*MH+%.8f*MH*MH+%.8f*MH*MH*MH)",ROOT.RooArgSet(fitParams[file][1])),
+    mean_c0[systematic] = meanfit[systematic].GetParameter(0)
+    mean_c1[systematic] = meanfit[systematic].GetParameter(1)
+    mean_c2[systematic] = meanfit[systematic].GetParameter(2)
+    mean_c3[systematic] = meanfit[systematic].GetParameter(3)
+    print " mean formula ({0:f}+ {1:f}*@0)".format(mean_c0[systematic],mean_c1[systematic])
+    intMean[systematic] = ROOT.RooFormulaVar("intMean_"+systematic,"intMean_"+systematic,"({0:f}+ {1:f}*@0)".format(mean_c0[systematic],mean_c1[systematic]),ROOT.RooArgList(MH[systematic]))
+    sigma_c0[systematic] = sigmafit[systematic].GetParameter(0)
+    sigma_c1[systematic] = sigmafit[systematic].GetParameter(1)
+    sigma_c2[systematic] = sigmafit[systematic].GetParameter(2)
+    sigma_c3[systematic] = sigmafit[systematic].GetParameter(3)
+    intSigma[systematic] = ROOT.RooFormulaVar("intSigma_"+systematic,"intSigma_"+systematic,"({0:f}+ {1:f}*@0+{2:f}*@0*@0+{3:f}*@0*@0*@0)".format(sigma_c0[systematic],sigma_c1[systematic],sigma_c2[systematic],sigma_c3[systematic]),ROOT.RooArgList(MH[systematic]))
+    norm_c0[systematic] = normfit[systematic].GetParameter(0)
+    norm_c1[systematic] = normfit[systematic].GetParameter(1)
+    norm_c2[systematic] = normfit[systematic].GetParameter(2)
+    norm_c3[systematic] = normfit[systematic].GetParameter(3)
+    #intNorm = ROOT.RooFormulaVar("intNorm","({0:f}+ {1:f}*@0+{2:f}*@0*@0+{3:f}*@0*@0*@0)".format(norm_c0,norm_c1,norm_c2,norm_c3),ROOT.RooArgSet(MH,MHerr))
+    intNorm[systematic]  = ROOT.RooFormulaVar("signal_norm_"+systematic,"signal_norm_"+systematic,"({0:f}+ {1:f}*@0+{2:f}*@0*@0+{3:f}*@0*@0*@0)".format(norm_c0[systematic] ,norm_c1[systematic] ,norm_c2[systematic] ,norm_c3[systematic] ),ROOT.RooArgList(MH[systematic] ))
+    print "interpolated Mean formula ",intMean[systematic] .Print()
+    intSignalTemplate[systematic]  = ROOT.RooGaussian("signal_"+systematic,   "signal_"+systematic,Mll[systematic] , intMean[systematic] , intSigma[systematic]  )
+
+
+
+
+    for mass in range(16,66):
+       massEval[systematic] = meanfit[systematic].Eval(mass)
+       normEval[systematic] = normfit[systematic].Eval(mass)
+       sigmaEval[systematic] = sigmafit[systematic].Eval(mass)
+       signalnorms[systematic][str(mass)] = normEval[systematic]
+       print "evaluation of mean at ",mass," is ",massEval[systematic], " generating signal template "
+       print "evaluation of norm at ",mass," is ",normEval[systematic]
+       print "evaluation of sigma at ",mass," is ",sigmaEval[systematic]
+       x[systematic][str(mass)] = ROOT.RooRealVar("mll_"+systematic,    "mll_"+systematic,massEval[systematic]-2.0,massEval[systematic]+2.0)
+       m[systematic][str(mass)] =ROOT.RooRealVar("mean_"+systematic,    "mean_"+systematic,massEval[systematic],"GeV")
+       s[systematic][str(mass)] = ROOT.RooRealVar("sigma_"+systematic,    "sigma_"+systematic, sigmaEval[systematic],"GeV")
+
+    return
+
+######################################################################################################
+'''Function to create the final workspace with the interpolation
+'''
+######################################################################################################
+def createWorkspace(systematics):
+    #import data and PDF into workspaco
+    workspace = ROOT.RooWorkspace("w")
+    data["Nominal"].SetName("data_obs")
+    getattr(workspace,'import')(data["Nominal"])
+    for systematic in systematics:
+        print "importing pdfs into workspace ", systematic
+        if systematic=="Nominal":
+            intSignalTemplate[systematic].SetName("signal")
+            ZZfit[systematic].SetName("ZZfit")
+            FFfit[systematic].SetName("FFfit")
+            ZZ[systematic].SetName("ZZ")
+            FF[systematic].SetName("FF")
+        else:
+            intSignalTemplate[systematic].SetName("signal_"+systematic)
+            ZZfit[systematic].SetName("ZZ_"+systematic)
+            FFfit[systematic].SetName("FF_"+systematic)
+        getattr(workspace,'import')(intSignalTemplate[systematic])
+        getattr(workspace,'import')(ZZfit[systematic])
+        getattr(workspace,'import')(norm_ZZ[systematic])
+        getattr(workspace,'import')(FFfit[systematic])
+        getattr(workspace,'import')(norm_FF[systematic])
+
+    # if systematic=="Nominal":
+    #     intSignalTemplate[systematic].SetName("signal")
+    #     ZZfit[systematic].SetName("ZZ")
+    #     FFfit[systematic].SetName("FF")
+    #     ZZ[systematic].SetName("ZZ")
+    #     FF[systematic].SetName("FF")
+    # else:
+    #     intSignalTemplate[systematic].SetName("signal_"+systematic)
+    #     ZZfit[systematic].SetName("ZZ_"+systematic)
+    #     FFfit[systematic].SetName("FF_"+systematic)
+
+
+    workspace.Print()
+    workspace.writeToFile("HToAAWorkspace_full_"+args.output+".root")
+    del workspace
+    return
+
+
+def findPull(nominal,up,down):
+    import numpy as np
+    val_nom = nominal.sumEntries()
+    val_up = up.sumEntries()
+    val_down = down.sumEntries()
+    s1 = float(val_up)/float(val_nom)
+    s2 = float(val_down)/float(val_nom)
+
+    return np.sqrt(s1*s1+s2*s2)
+
+def findAsyPull(nominal,sys):
+    val_nom = nominal.sumEntries()
+    val_sys = sys.sumEntries()
+
+    return float(val_sys)/float(val_nom)
+
+
+def createCards():
+    masses = sigIn["Nominal"].keys()
+    masses.sort()
+    ##Make the datacard
+    outFile = open("datacard_full_"+args.output+".txt","w")#write mode
+
+    outFile.write("imax 1\n") #number of bins - only one category ... no control region
+    outFile.write("jmax 2\n") #number of processes minus 1
+    outFile.write("kmax *\n") #number of nuisance parameters
+    outFile.write("---------------\n")
+    outFile.write("shapes * bin1 HToAAWorkspace_full_"+args.output+".root w:$PROCESS\n")
+    #outFile.write("shapes * bin1 HToAAWorkspace_full_"+args.output+".root w:$PROCESS_$SYSTEMATIC\n")
+    #outFile.write("shapes * * HToAAWorkspace_full_"+args.output+".root $PROCESS $PROCESS_$SYSTEMATIC\n")
+
+    outFile.write("---------------\n")
+
+    outFile.write("bin         bin1   \n")
+    outFile.write("observation   -1 \n") # for parametric fit this needs to be -1
+
+    outFile.write("------------------------------\n")
+    outFile.write("bin                    ")
+    outFile.write(" bin1 ")
+    outFile.write("bin1 bin1 \n")
+    outFile.write("process                ")
+    outFile.write(" signal                ZZfit      FFfit\n")
+    outFile.write("process                ")
+    outFile.write("0 1 2")
+    outFile.write("\n")
+    outFile.write("rate                   ")
+    outFile.write("1 1 1 \n")
+    outFile.write("------------------------------\n")
+    outFile.write("lumi     lnN              1.1    1.1    1.1\n")
+
+    systematics =[ "scale_e","scale_m_etalt1p2",
+                   "scale_m_eta1p2to2p1","scale_m_etagt2p1",
+                   "scale_t_1prong","scale_t_1prong1pizero",
+                   "scale_t_3prong","scale_t_3prong1pizero"]
+    for systematic in systematics:
+        signalpullup   = findAsyPull(sig["Nominal"]["a40"],sig[systematic+"Up"]["a40"])
+        signalpulldown = findAsyPull(sig["Nominal"]["a40"],sig[systematic+"Down"]["a40"])
+        FFpullup       = findAsyPull(FF["Nominal"],FF[systematic+"Up"])
+        FFpulldown     = findAsyPull(FF["Nominal"],FF[systematic+"Down"])
+        ZZpullup       = findAsyPull( ZZ["Nominal"],ZZ[systematic+"Up"])
+        ZZpulldown     = findAsyPull( ZZ["Nominal"],ZZ[systematic+"Down"])
+
+        #outFile.write(systematic+"   lnN              {0:.2f}   {1:.2f}  {2:.2f}\n".format(signalpullup +"/"+signalpulldown+"   "+ZZpullup +"/"+ZZpulldown+"   "+ FFpullup +"/"+FFpulldown))
+        outFile.write(systematic+"   lnN    "+str(signalpullup) +"/"+str(signalpulldown)+"   "+str(ZZpullup) +"/"+str(ZZpulldown)+"   "+ str(FFpullup) +"/"+str(FFpulldown)+"\n")
+
+    # scale_t_1prong_pull_sig_up = findAsyPull(sig["Nominal"]["a40"],sig["scale_t_1prongUp"]["a40"])
+    # scale_t_1prong_pull_sig_down = findAsyPull(sig["Nominal"]["a40"],sig["scale_t_1prongDown"]["a40"])
+    # scale_t_1prong_pull_ZZ = findAsyPull(ZZ["Nominal"],ZZ["scale_t_1prongUp"],ZZ["scale_t_1prongDown"])
+    # scale_t_1prong_pull_FF = findAsyPull(FF["Nominal"],FF["scale_t_1prongUp"],FF["scale_t_1prongDown"])
+    # outFile.write("TES     lnN              {0:.2f}   {1:.2f}  {2:.2f}\n".format(scale_t_1prong_pull_sig,scale_t_1prong_pull_ZZ,scale_t_1prong_pull_FF))
+    #
+    # scale_e_pull_sig = findAsyPull(sig["Nominal"]["a40"],sig["scale_eUp"]["a40"],sig["scale_eDown"]["a40"])
+    # scale_e_pull_ZZ = findAsyPull(ZZ["Nominal"],ZZ["scale_eUp"],ZZ["scale_eDown"])
+    # scale_e_pull_FF = findAsyPull(FF["Nominal"],FF["scale_eUp"],FF["scale_eDown"])
+    # outFile.write("EES     lnN              {0:.2f}   {1:.2f}  {2:.2f}\n".format(scale_e_pull_sig,scale_e_pull_ZZ,scale_e_pull_FF))
+    #
+    # scale_m_eta1p2to2p1_pull_sig = findAsyPull(sig["Nominal"]["a40"],sig["scale_m_eta1p2to2p1Up"]["a40"],sig["scale_m_eta1p2to2p1Down"]["a40"])
+    # scale_m_eta1p2to2p1_pull_ZZ = findAsyPull(ZZ["Nominal"],ZZ["scale_m_eta1p2to2p1Up"],ZZ["scale_m_eta1p2to2p1Down"])
+    # scale_m_eta1p2to2p1_pull_FF = findAsyPull(FF["Nominal"],FF["scale_m_eta1p2to2p1Up"],FF["scale_m_eta1p2to2p1Down"])
+    # outFile.write("MES_1p2to2p1     lnN              {0:.2f}   {1:.2f}  {2:.2f}\n".format(scale_m_eta1p2to2p1_pull_sig,scale_m_eta1p2to2p1_pull_ZZ,scale_m_eta1p2to2p1_pull_FF))
+    #
+    # scale_m_etagt2p1_pull_sig = findAsyPull(sig["Nominal"]["a40"],sig["scale_m_etagt2p1Up"]["a40"],sig["scale_m_etagt2p1Down"]["a40"])
+    # scale_m_etagt2p1_pull_ZZ = findAsyPull(ZZ["Nominal"],ZZ["scale_m_etagt2p1Up"],ZZ["scale_m_etagt2p1Down"])
+    # scale_m_etagt2p1_pull_FF = findAsyPull(FF["Nominal"],FF["scale_m_etagt2p1Up"],FF["scale_m_etagt2p1Down"])
+    # outFile.write("MES_gt2p1     lnN              {0:.2f}   {1:.2f}  {2:.2f}\n".format(scale_m_etagt2p1_pull_sig,scale_m_etagt2p1_pull_ZZ,scale_m_etagt2p1_pull_FF))
+    #
+    # scale_t_1prong1pizero_pull_sig = findAsyPull(sig["Nominal"]["a40"],sig["scale_t_1prong1pizeroUp"]["a40"],sig["scale_t_1prong1pizeroDown"]["a40"])
+    # scale_t_1prong1pizero_pull_ZZ = findAsyPull(ZZ["Nominal"],ZZ["scale_t_1prong1pizeroUp"],ZZ["scale_t_1prong1pizeroDown"])
+    # scale_t_1prong1pizero_pull_FF = findAsyPull(FF["Nominal"],FF["scale_t_1prong1pizeroUp"],FF["scale_t_1prong1pizeroDown"])
+    # outFile.write("TES_p0     lnN              {0:.2f}   {1:.2f}  {2:.2f}\n".format(scale_t_1prong1pizero_pull_sig,scale_t_1prong1pizero_pull_ZZ,scale_t_1prong1pizero_pull_FF))
+    #
+    # scale_t_3prong_pull_sig = findAsyPull(sig["Nominal"]["a40"],sig["scale_t_3prongUp"]["a40"],sig["scale_t_3prongDown"]["a40"])
+    # scale_t_3prong_pull_ZZ = findAsyPull(ZZ["Nominal"],ZZ["scale_t_3prongUp"],ZZ["scale_t_3prongDown"])
+    # scale_t_3prong_pull_FF = findAsyPull(FF["Nominal"],FF["scale_t_3prongUp"],FF["scale_t_3prongDown"])
+    # outFile.write("TES_3p     lnN              {0:.2f}   {1:.2f}  {2:.2f}\n".format(scale_t_3prong_pull_sig,scale_t_3prong_pull_ZZ,scale_t_3prong_pull_FF))
+    #
+    # scale_t_3prong1pizero_pull_sig = findAsyPull(sig["Nominal"]["a40"],sig["scale_t_3prong1pizeroUp"]["a40"],sig["scale_t_3prong1pizeroDown"]["a40"])
+    # scale_t_3prong1pizero_pull_ZZ = findAsyPull(ZZ["Nominal"],ZZ["scale_t_3prong1pizeroUp"],ZZ["scale_t_3prong1pizeroDown"])
+    # scale_t_3prong1pizero_pull_FF = findAsyPull(FF["Nominal"],FF["scale_t_3prong1pizeroUp"],FF["scale_t_3prong1pizeroDown"])
+    # outFile.write("TES_3pp0     lnN              {0:.2f}   {1:.2f}  {2:.2f}\n".format(scale_t_3prong1pizero_pull_sig,scale_t_3prong1pizero_pull_ZZ,scale_t_3prong1pizero_pull_FF))
+
+    outFile.close()
+
+
+
+    return
+
+if __name__ == "__main__":
+
+    if args.workspace:
+        for systematic in systematics:
+            createPDFs(fileIn,systematic)
+
+        print "pdfs ",FF
+        print "fits ",FFfit
+        print "trying a fit"
+        fitresult[systematic] = FFfit["Nominal"].fitTo(FF["Nominal"],ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+
+        for systematic in systematics:
+            print "working on systematic ",systematic
+            createFitsAndPlots(systematic)
+            createInterpolation(systematic)
+
+        print "done with pdfs and interpolation"
+        createWorkspace(systematics)
+    if args.cards:
+        createCards()
