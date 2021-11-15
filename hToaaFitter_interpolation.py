@@ -63,7 +63,11 @@ sigIn["a55"] = [fIn2.Get(args.inputDir+"/"+"Nominal_a55"),53.0,57.0,55.0,ROOT.kC
 sigIn["a60"] = [fIn2.Get(args.inputDir+"/"+"Nominal_a60"),58.0,62.0,60.0,ROOT.kAzure]
 
 #getting the TTrees
-datatree = fIn2.Get(args.inputDir+"/"+"Nominal_data_obs")
+if not (fIn2.Get(args.inputDir+"/"+"Nominal_data_obs")):
+    datatree = fIn2.Get(args.inputDir+"/"+"Nominal_Bkg")
+else:
+    datatree = fIn2.Get(args.inputDir+"/"+"Nominal_data_obs")
+
 sigtree = fIn2.Get(args.inputDir+"/"+"Nominal_a40")
 #hInSig = fIn2.Get("a40")   # signal distribution included above!
 #tlist = ROOT.TList()
@@ -125,8 +129,10 @@ for file in sigIn.keys():
 #data = ROOT.RooDataSet("data_obs","data",ROOT.RooArgSet(fitParams["a40"][0]), ROOT.RooFit.Import(datatree))
 Mmm = ROOT.RooRealVar("mll","m_{#mu#mu}", 16, 66)
 finalweight = ROOT.RooRealVar("finalweight","finalweight", 0.0, 3.0)
+
 data = ROOT.RooDataSet("data_obs","data",ROOT.RooArgSet(Mmm), ROOT.RooFit.Import(datatree))
-data.reduce("mll > 14 && mll < 63")
+#data.reduce("mll > 14 && mll < 63")
+
 #bkg = ROOT.RooDataSet("bkg","bkg ",ROOT.RooArgSet(fitParams["a40"][0]), ROOT.RooFit.Import(bkgtree))
 bkg = ROOT.RooDataSet("bkg","bkg ",ROOT.RooArgSet(Mmm), ROOT.RooFit.Import(bkgtree))
 bkg.reduce("mll > 14 && mll < 63")
