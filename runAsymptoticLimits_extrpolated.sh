@@ -34,4 +34,4 @@ done
 echo "hadding the files"
 rm higgsCombine_aa_${mainout}_best.root
 hadd higgsCombine_aa_${mainout}_best.root higgsCombine_mass_*_${mainout}.AsymptoticLimits.mH*.root
-root -l -b -q 'plotLimit.C+("aa",'"'${mainout}'"',2)'
+root -l -b -q 'plotLimit.C+("aa", ${mainout} ,2)'

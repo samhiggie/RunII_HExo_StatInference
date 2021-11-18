@@ -28,11 +28,8 @@ parser.add_argument("-csv",  "--csvfile", default="MCsamples_2016_v6_yaml.csv", 
 parser.add_argument("-p",  "--processes", default="processes_special.yaml",  help="processes yaml file")
 parser.add_argument("-cards",  "--cards", default=False,action='store_true',  help="create the datacards")
 parser.add_argument("-workspace",  "--workspace", default=True,action='store_false',  help="create the workspace")
-parser.add_argument("-dd",  "--datadriven", default=False,action='store_true',  help="Use DataDriven Method")
-parser.add_argument("-ddZH",  "--datadrivenZH", default=False,action='store_true',  help="Use DataDriven Method")
-parser.add_argument("-mc",  "--mc", default=False,action='store_true',  help="Use only mc skip data")
-parser.add_argument("-mhs",  "--mhs", default=False,action='store_true',  help="make file containing histograms for datacards")
-parser.add_argument("-fh",  "--fh", default=False,action='store_true',  help="Make Finalized histograms")
+parser.add_argument("-opt",  "--optimize", default=False,action='store_true',  help="do double fit")
+parser.add_argument("-seterror",  "--seterror", default=False,action='store_true',  help="save error on background to half of nominal fit value")
 parser.add_argument("-ss",  "--signalScale", default=1.0,  help="Scale the Signal")
 args = parser.parse_args()
 
@@ -266,10 +263,20 @@ def createPDFs(fileIn,systematic):
     # c2_bkg[systematic] = ROOT.RooRealVar("c2_bkg_"+systematic,   "coeff. of bernstein 2",10.0)
     # c3_bkg[systematic] = ROOT.RooRealVar("c3_bkg_"+systematic,   "coeff. of bernstein 3",10.0)
 
-    # c0_bkg[systematic] = ROOT.RooRealVar("c0_bkg_"+systematic,   "coeff. of bernstein 0",10.0,-10000.0,10000.0)
-    # c1_bkg[systematic] = ROOT.RooRealVar("c1_bkg_"+systematic,  "coeff. of bernstein 1",10.0,-10000.0,10000.0)
-    # c2_bkg[systematic] = ROOT.RooRealVar("c2_bkg_"+systematic,   "coeff. of bernstein 2",10.0,-10000.0,10000.0)
-    # c3_bkg[systematic] = ROOT.RooRealVar("c3_bkg_"+systematic,   "coeff. of bernstein 3",10.0,-10000.0,10000.0)
+    # c0_bkg[systematic] = ROOT.RooRealVar("c0_bkg_"+systematic,   "coeff. of bernstein 0",0.0,0.0,100.0) # this needs to be at most unity
+    # c1_bkg[systematic] = ROOT.RooRealVar("c1_bkg_"+systematic,  "coeff. of bernstein 1",0.0,-100.0,100.0)
+    # c2_bkg[systematic] = ROOT.RooRealVar("c2_bkg_"+systematic,   "coeff. of bernstein 2",0.0,-100.0,100.0)
+    # c3_bkg[systematic] = ROOT.RooRealVar("c3_bkg_"+systematic,   "coeff. of bernstein 3",0.0,-100.0,100.0)
+
+    c0_bkg[systematic] = ROOT.RooRealVar("c0_bkg_"+systematic,   "coeff. of bernstein 0",0.0,0.0,1000000.0) # this needs to be at most unity
+    c1_bkg[systematic] = ROOT.RooRealVar("c1_bkg_"+systematic,  "coeff. of bernstein 1",0.0,-1000000.0,1000000.0)
+    c2_bkg[systematic] = ROOT.RooRealVar("c2_bkg_"+systematic,   "coeff. of bernstein 2",0.0,-1000000.0,1000000.0)
+    c3_bkg[systematic] = ROOT.RooRealVar("c3_bkg_"+systematic,   "coeff. of bernstein 3",0.0,-1000000.0,1000000.0)
+
+    # c0_bkg[systematic] = ROOT.RooRealVar("c0_bkg_"+systematic,   "coeff. of bernstein 0",0.0,0.0,1.0) # this needs to be at most unity
+    # c1_bkg[systematic] = ROOT.RooRealVar("c1_bkg_"+systematic,  "coeff. of bernstein 1",0.0,0.0,1.0)
+    # c2_bkg[systematic] = ROOT.RooRealVar("c2_bkg_"+systematic,   "coeff. of bernstein 2",0.0,0.0,1.0)
+    # c3_bkg[systematic] = ROOT.RooRealVar("c3_bkg_"+systematic,   "coeff. of bernstein 3",0.0,0.0,1.0)
 
     # c0_bkg[systematic]=ROOT.RooRealVar("c0_bkg_"+systematic,"c0_bkg_"+systematic,1)
     # c1_bkg[systematic]=ROOT.RooRealVar("c1_bkg_"+systematic,"c1_bkg_"+systematic,0,-1,1)
@@ -301,10 +308,10 @@ def createPDFs(fileIn,systematic):
 
     ###BEST!!!! mUST ad c0 !!!!!
     #square bern x4 maybe I need to float the first one too????
-    c0_bkg[systematic] = ROOT.RooRealVar("c0_bkg_"+systematic,   "coeff. of bernstein 0",0.3,0.2,0.5)
-    c1_bkg[systematic] = ROOT.RooRealVar("c1_bkg_"+systematic,  "coeff. of bernstein 1",24.0,12.0,36.0)
-    c2_bkg[systematic] = ROOT.RooRealVar("c2_bkg_"+systematic,   "coeff. of bernstein 2",9.0,4.0,14.0)
-    c3_bkg[systematic] = ROOT.RooRealVar("c3_bkg_"+systematic,   "coeff. of bernstein 3",10.0,5.0,15.0)
+    # c0_bkg[systematic] = ROOT.RooRealVar("c0_bkg_"+systematic,   "coeff. of bernstein 0",0.3,0.2,0.5)
+    # c1_bkg[systematic] = ROOT.RooRealVar("c1_bkg_"+systematic,  "coeff. of bernstein 1",24.0,12.0,36.0)
+    # c2_bkg[systematic] = ROOT.RooRealVar("c2_bkg_"+systematic,   "coeff. of bernstein 2",9.0,4.0,14.0)
+    # c3_bkg[systematic] = ROOT.RooRealVar("c3_bkg_"+systematic,   "coeff. of bernstein 3",10.0,5.0,15.0)
 
     #squred? not yet
     # c0_bkg[systematic] = ROOT.RooRealVar("c0_bkg_"+systematic,   "coeff. of bernstein 0",1.0)
@@ -345,9 +352,9 @@ def createPDFs(fileIn,systematic):
     #FFfit[systematic] = ROOT.RooPolynomial("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic],c3_bkg[systematic])) #constant only
     #FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg_sq[systematic],c1_bkg_sq[systematic],c2_bkg_sq[systematic],c3_bkg_sq[systematic],c4_bkg_sq[systematic])) #constant only
     #FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg_sq[systematic],c1_bkg_sq[systematic],c2_bkg_sq[systematic],c3_bkg_sq[systematic])) #constant only
-    FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg_sq[systematic],c1_bkg_sq[systematic],c2_bkg_sq[systematic],c3_bkg_sq[systematic])) #constant only
-    #FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic],c3_bkg[systematic])) #constant only
-    #FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic],c3_bkg[systematic])) #constant only
+    #FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg_sq[systematic],c1_bkg_sq[systematic],c2_bkg_sq[systematic],c3_bkg_sq[systematic])) #constant only
+    #FFfit[systematic] = ROOT.RooPolynomial("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic],c3_bkg[systematic])) #constant only
+    FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic],c3_bkg[systematic])) #constant only
     #FFfit[systematic] = ROOT.RooPolynomial("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic],c3_bkg[systematic])) #constant only
     #FFfit[systematic] = ROOT.RooPolynomial("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic])) #constant only
     #FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic])) #constant only
@@ -358,21 +365,31 @@ def createPDFs(fileIn,systematic):
     ######################################################################################################
     norm_ZZ[systematic] = ROOT.RooRealVar("ZZfit_norm_"+systematic,   "ZZ Normalization_"+systematic,ZZ[systematic].sumEntries(),ZZ[systematic].sumEntries()/2,2*ZZ[systematic].sumEntries())
 
-    # c0_ZZ[systematic] = ROOT.RooRealVar("c0_ZZ_"+systematic,   "coeff. of bernstein 0",1.0,-1000.0,1000.0)
-    # c1_ZZ[systematic] = ROOT.RooRealVar("c1_ZZ_"+systematic,  "coeff. of bernstein 1",1.0,-1000.0,1000.0)
-    # c2_ZZ[systematic] = ROOT.RooRealVar("c2_ZZ_"+systematic,   "coeff. of bernstein 2",1.0,-1000.0,1000.0)
-    # c3_ZZ[systematic] = ROOT.RooRealVar("c3_ZZ_"+systematic,   "coeff. of bernstein 3",1.0,-1000.0,1000.0)
+    # c0_ZZ[systematic] = ROOT.RooRealVar("c0_ZZ_"+systematic,   "coeff. of bernstein 0",0.0,0.0,100.0)
+    # c1_ZZ[systematic] = ROOT.RooRealVar("c1_ZZ_"+systematic,  "coeff. of bernstein 1",0.0,-100.0,100.0)
+    # c2_ZZ[systematic] = ROOT.RooRealVar("c2_ZZ_"+systematic,   "coeff. of bernstein 2",0.0,-100.0,100.0)
+    # c3_ZZ[systematic] = ROOT.RooRealVar("c3_ZZ_"+systematic,   "coeff. of bernstein 3",0.0,-100.0,100.0)
+
+    c0_ZZ[systematic] = ROOT.RooRealVar("c0_ZZ_"+systematic,   "coeff. of bernstein 0",0.0,0.0,1000000.0)
+    c1_ZZ[systematic] = ROOT.RooRealVar("c1_ZZ_"+systematic,  "coeff. of bernstein 1",0.0,-1000000.0,1000000.0)
+    c2_ZZ[systematic] = ROOT.RooRealVar("c2_ZZ_"+systematic,   "coeff. of bernstein 2",0.0,-1000000.0,1000000.0)
+    c3_ZZ[systematic] = ROOT.RooRealVar("c3_ZZ_"+systematic,   "coeff. of bernstein 3",0.0,-1000000.0,1000000.0)
+
+    # c0_ZZ[systematic] = ROOT.RooRealVar("c0_ZZ_"+systematic,   "coeff. of bernstein 0",0.0,0.0,1.0)
+    # c1_ZZ[systematic] = ROOT.RooRealVar("c1_ZZ_"+systematic,  "coeff. of bernstein 1",0.0,0.0,1.0)
+    # c2_ZZ[systematic] = ROOT.RooRealVar("c2_ZZ_"+systematic,   "coeff. of bernstein 2",0.0,0.0,1.0)
+    # c3_ZZ[systematic] = ROOT.RooRealVar("c3_ZZ_"+systematic,   "coeff. of bernstein 3",0.0,0.0,1.0)
 
     #square bern x4 super tight fit
     # c0_ZZ[systematic] = ROOT.RooRealVar("c0_ZZ_"+systematic,   "coeff. of bernstein 0",1.0)
     # c1_ZZ[systematic] = ROOT.RooRealVar("c1_ZZ_"+systematic,  "coeff. of bernstein 1",15.0,14.0,18.0)
     # c2_ZZ[systematic] = ROOT.RooRealVar("c2_ZZ_"+systematic,   "coeff. of bernstein 2",8.0,6.0,10.0)
     # c3_ZZ[systematic] = ROOT.RooRealVar("c3_ZZ_"+systematic,   "coeff. of bernstein 3",-6.0,-7.0,-5.0)
-    #square bern x4
-    c0_ZZ[systematic] = ROOT.RooRealVar("c0_ZZ_"+systematic,   "coeff. of bernstein 0",1.0,0.0,2.0)
-    c1_ZZ[systematic] = ROOT.RooRealVar("c1_ZZ_"+systematic,  "coeff. of bernstein 1",15.0,8.0,22.0)
-    c2_ZZ[systematic] = ROOT.RooRealVar("c2_ZZ_"+systematic,   "coeff. of bernstein 2",8.0,4.0,12.0)
-    c3_ZZ[systematic] = ROOT.RooRealVar("c3_ZZ_"+systematic,   "coeff. of bernstein 3",-6.0,-9.0,-3.0)
+    #THESE ARE THE BEST square bern x4
+    # c0_ZZ[systematic] = ROOT.RooRealVar("c0_ZZ_"+systematic,   "coeff. of bernstein 0",1.0,0.0,2.0)
+    # c1_ZZ[systematic] = ROOT.RooRealVar("c1_ZZ_"+systematic,  "coeff. of bernstein 1",15.0,8.0,22.0)
+    # c2_ZZ[systematic] = ROOT.RooRealVar("c2_ZZ_"+systematic,   "coeff. of bernstein 2",8.0,4.0,12.0)
+    # c3_ZZ[systematic] = ROOT.RooRealVar("c3_ZZ_"+systematic,   "coeff. of bernstein 3",-6.0,-9.0,-3.0)
 
     # non square best so far
     # c0_ZZ[systematic] = ROOT.RooRealVar("c0_ZZ_"+systematic,   "coeff. of bernstein 0",1.0)
@@ -398,9 +415,10 @@ def createPDFs(fileIn,systematic):
 
     #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic],c3_ZZ_sq[systematic])) #constant only
     #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic])) #constant only
-    ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic],c3_ZZ_sq[systematic])) #constant only
+    #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic],c3_ZZ_sq[systematic])) #constant only
     #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic],c3_ZZ[systematic])) #constant only
-    #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic])) #constant only
+    #ZZfit[systematic] = ROOT.RooPolynomial("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic],c3_ZZ[systematic])) #constant only
+    ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic])) #constant only
     #ZZfit[systematic] = ROOT.RooPolynomial("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic],c3_ZZ[systematic])) #constant only
     #ZZfit[systematic] = ROOT.RooPolynomial("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic])) #constant only
     ######################################################################################################
@@ -439,6 +457,47 @@ def createFitsAndPlots(systematic):
     print "FF ",FF[systematic]
     print "FF fit ",FFfit[systematic]
     #print dir(FFfit)
+    if args.optimize:
+        print "FIRST FIT"
+        if systematic=="Nominal":
+            fitresultFF[systematic] = FFfit[systematic].fitTo(
+                FF[systematic],ROOT.RooFit.Range(16,66),
+                ROOT.RooFit.Minimizer("Minuit2"),
+                ROOT.RooFit.Save(),
+                ROOT.RooFit.SumW2Error(ROOT.kTRUE))
+            c0_bkg[systematic].setRange(c0_bkg[systematic].getValV()/1.5,c0_bkg[systematic].getValV()*1.5)
+            #c0_bkg[systematic].setRange(0.0,1.0)
+            c1_bkg[systematic].setRange(c1_bkg[systematic].getValV()/1.50,c1_bkg[systematic].getValV()*1.50)
+            c2_bkg[systematic].setRange(c2_bkg[systematic].getValV()/1.50,c2_bkg[systematic].getValV()*1.50)
+            c3_bkg[systematic].setRange(c3_bkg[systematic].getValV()/1.50,c3_bkg[systematic].getValV()*1.50)
+            print "Found optimal ranges"
+            #FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg_sq[systematic],c1_bkg_sq[systematic],c2_bkg_sq[systematic],c3_bkg_sq[systematic])) #constant only
+            FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic],c3_bkg[systematic])) #constant only
+            #FFfit[systematic] = ROOT.RooPolynomial("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic],c3_bkg[systematic])) #constant only
+
+        fitresultZZ[systematic] = ZZfit[systematic].fitTo(ZZ[systematic],
+            ROOT.RooFit.Range(16,66),
+            ROOT.RooFit.Minimizer("Minuit2"),
+            ROOT.RooFit.Save(),
+            ROOT.RooFit.SumW2Error(ROOT.kTRUE))
+
+        # for mass in sigIn[systematic].keys():
+        #     fitresultsig[mass]={}
+        #     fitresultsig[mass][systematic] = sigfit[systematic][mass].fitTo(sig[systematic][mass],
+        #         ROOT.RooFit.Range(sigIn[systematic][mass][1],sigIn[systematic][mass][2]),
+        #         ROOT.RooFit.Minimizer("Minuit2"),
+        #         ROOT.RooFit.Save())
+
+        c0_ZZ[systematic].setRange(c0_ZZ[systematic].getValV()/1.125,c0_ZZ[systematic].getValV()*1.125)
+        #c0_ZZ[systematic].setRange(0.0,1.0)
+        c1_ZZ[systematic].setRange(c1_ZZ[systematic].getValV()/1.1250,c1_ZZ[systematic].getValV()*1.1250)
+        c2_ZZ[systematic].setRange(c2_ZZ[systematic].getValV()/1.1250,c2_ZZ[systematic].getValV()*1.1250)
+        c3_ZZ[systematic].setRange(c3_ZZ[systematic].getValV()/1.1250,c3_ZZ[systematic].getValV()*1.1250)
+
+        #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic],c3_ZZ_sq[systematic]))
+        ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic],c3_ZZ[systematic]))
+        #ZZfit[systematic] = ROOT.RooPolynomial("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic],c3_ZZ[systematic]))
+
 
     if systematic == "Nominal":
         ######################################################################################################
@@ -479,15 +538,21 @@ def createFitsAndPlots(systematic):
         fitresultFF[systematic] = FFfit[systematic].fitTo(
             FF[systematic],ROOT.RooFit.Range(16,66),
             ROOT.RooFit.Minimizer("Minuit2"),
-            ROOT.RooFit.Save())
+            ROOT.RooFit.Save(),
+            ROOT.RooFit.SumW2Error(ROOT.kTRUE))
         #fitresult[systematic] = FFfit.fitTo(FF)
+        if args.seterror:
+            c0_bkg[systematic].setError(abs(c0_bkg[systematic].getValV()*0.05))
+            c1_bkg[systematic].setError(abs(c1_bkg[systematic].getValV()*0.50))
+            c2_bkg[systematic].setError(abs(c2_bkg[systematic].getValV()*0.50))
+            c3_bkg[systematic].setError(abs(c3_bkg[systematic].getValV()*0.50))
         print "FF fit results: "
         fitresultFF[systematic].Print()
-        cormat = ROOT.TMatrixDSym(fitresultFF[systematic].correlationMatrix())
-        print "FF fit correclation matrix: "
-        cormat.Print()
-        ll = ROOT.RooLinkedList()
-        print "FF fit minNll: ",fitresultFF[systematic].minNll()
+        #cormat = ROOT.TMatrixDSym(fitresultFF[systematic].correlationMatrix())
+        #print "FF fit correclation matrix: "
+        #cormat.Print()
+        #ll = ROOT.RooLinkedList()
+        #print "FF fit minNll: ",fitresultFF[systematic].minNll()
         # chi2 = FFfit[systematic].createChi2(FF[systematic],ll)
         # print "FF create chi 2: "
         # chi2.Print()
@@ -528,7 +593,16 @@ def createFitsAndPlots(systematic):
 
     ZZ[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(16))
 
-    fitresultZZ[systematic] = ZZfit[systematic].fitTo(ZZ[systematic],ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+    fitresultZZ[systematic] = ZZfit[systematic].fitTo(ZZ[systematic],
+                ROOT.RooFit.Range(16,66),
+                ROOT.RooFit.Minimizer("Minuit2"),
+                ROOT.RooFit.Save(),
+                ROOT.RooFit.SumW2Error(ROOT.kTRUE))
+    if args.seterror:
+        c0_ZZ[systematic].setError(abs(c0_ZZ[systematic].getValV()*0.05))
+        c1_ZZ[systematic].setError(abs(c1_ZZ[systematic].getValV()*0.50))
+        c2_ZZ[systematic].setError(abs(c2_ZZ[systematic].getValV()*0.50))
+        c3_ZZ[systematic].setError(abs(c3_ZZ[systematic].getValV()*0.50))
 
     print "ZZ fit results:"
     fitresultZZ[systematic].Print()
@@ -558,10 +632,14 @@ def createFitsAndPlots(systematic):
         massFrame[systematic] = overmass[systematic].frame()
 
         sig[systematic][mass].plotOn(massFrame[systematic])
-        fitresultsig[mass][systematic] = sigfit[systematic][mass].fitTo(sig[systematic][mass],ROOT.RooFit.Range(sigIn[systematic][mass][1],sigIn[systematic][mass][2]), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+        fitresultsig[mass][systematic] = sigfit[systematic][mass].fitTo(sig[systematic][mass],
+                    ROOT.RooFit.Range(sigIn[systematic][mass][1],sigIn[systematic][mass][2]),
+                    ROOT.RooFit.Minimizer("Minuit2"),
+                    ROOT.RooFit.Save(),
+                    ROOT.RooFit.SumW2Error(ROOT.kTRUE))
         #fitresult[systematic] = sigfit[mass].fitTo(sig[mass],ROOT.RooFit.ExternalConstraints(ROOT.RooArgSet(constraint_signal_0)),ROOT.RooFit.Range(sigIn[mass][1],sigIn[mass][2]), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
 
-        #sigfit[systematic][mass].paramOn(massFrame[systematic])
+        sigfit[systematic][mass].paramOn(massFrame[systematic])
         #cout<< rrv->getVal() <<"  +/-  "<<rrv->getError();
         print "sig "+mass+" fit results: "
         fitresultsig[mass][systematic].Print()
