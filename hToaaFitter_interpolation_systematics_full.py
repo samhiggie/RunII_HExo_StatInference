@@ -90,9 +90,11 @@ finalweight={}
 meanfit={}
 normfit={}
 sigmafit={}
+alphafit={}
 meangraph={}
 normgraph={}
 sigmagraph={}
+alphagraph={}
 signaltemplates = {}
 signalnorms = {}
 signaldatasets = {}
@@ -124,6 +126,7 @@ sigmaEval = {}
 intSignalTemplate = {}
 overmass={}
 massFrame={}
+massFramesig={}
 fitresult={}
 fitresultsig={}
 fitresultZZ={}
@@ -176,11 +179,11 @@ def createPDFs(fileIn,systematic):
     if not (fileIn.Get(args.inputDir+"/Nominal_data_obs")):
         datatree[systematic] = fileIn.Get(args.inputDir+"/"+systematic+"_Bkg")
         FFtree[systematic] = fileIn.Get(args.inputDir+"/"+systematic+"_Bkg")
-        print "ff tree entries ",FFtree[systematic].GetEntries()
+        print("ff tree entries ",FFtree[systematic].GetEntries())
     else:
         datatree[systematic] = fileIn.Get(args.inputDir+"/"+"Nominal_data_obs")
         FFtree[systematic] = fileIn.Get(args.inputDir+"/"+systematic+"_Bkg")
-        print "ff tree entries ",FFtree[systematic].GetEntries()
+        print("ff tree entries ",FFtree[systematic].GetEntries())
 
     sigtree[systematic] = fileIn.Get(args.inputDir+"/"+systematic+"_a40")
     bkgtree[systematic] = fileIn.Get(args.inputDir+"/"+systematic+"_Bkg")
@@ -197,22 +200,22 @@ def createPDFs(fileIn,systematic):
         # fitParams[systematic][file] = [
         #     ROOT.RooRealVar("mll",    "m_{#mu #mu}", sigIn[systematic][file][1], sigIn[systematic][file][2]),#works for fine binning
         #     ROOT.RooRealVar("g1Mean_"+str(file),   "mean of first gaussian",    sigIn[systematic][file][3], sigIn[systematic][file][1], sigIn[systematic][file][2], "GeV"),
-        #     ROOT.RooRealVar("sigmaM_"+str(file),  "#sigma of m_{#mu #mu}",1.0, 0.0,  10.0, "GeV")
+        #     ROOT.RooRealVar("sigmaM_"+str(file),  "#sigma of m_{#mu #mu}",0.15, 0.0,  0.5, "GeV")
         #     ]
         fitParams[systematic][file] = [
             ROOT.RooRealVar("mll",    "m_{#mu #mu}", sigIn[systematic][file][1], sigIn[systematic][file][2]),#works for fine binning
-            ROOT.RooRealVar("g1Mean_"+str(file),   "mean of first gaussian",    sigIn[systematic][file][3], sigIn[systematic][file][1], sigIn[systematic][file][2], "GeV"),
-            ROOT.RooRealVar("sigmaM_"+str(file),  "#sigma of m_{#mu #mu}",1.0, 0.0,  10.0, "GeV"),
-            ROOT.RooRealVar("lAlpha_"+str(file),   "#alpha of lorentz profile",     1.0, 0.0,      40.0)
+            ROOT.RooRealVar("Mean_"+str(file),   "mean of first gaussian",    sigIn[systematic][file][3], sigIn[systematic][file][1], sigIn[systematic][file][2], "GeV"),
+            ROOT.RooRealVar("sigma_"+str(file),  "#sigma of m_{#mu #mu}",0.15, 0.0,  1.0, "GeV"),
+            ROOT.RooRealVar("Alpha_"+str(file),   "#alpha of lorentz profile",     1.0, 0.0,      2.0)
             ]
 
     for file in sigIn[systematic].keys():
         # fitModels[systematic][file] = [
         #     ROOT.RooGaussian("gaussian_"+str(file),   "first gaussian PDF", fitParams[systematic][file][0], fitParams[systematic][file][1], fitParams[systematic][file][2]),
-        #     ROOT.RooRealVar("signalEvents_"+str(file), "",  sigtree[systematic].GetEntries(),   0.0, 1000.0),
+        #     ROOT.RooRealVar("signalEvents_"+str(file), "",  sigtree[systematic].GetEntries(),   sigtree[systematic].GetEntries()/2, sigtree[systematic].GetEntries()*2),
         #     ]
         fitModels[systematic][file] = [
-            ROOT.RooVoigtian("gaussian_"+str(file),   "first gaussian PDF", fitParams[systematic][file][0], fitParams[systematic][file][1], fitParams[systematic][file][3], fitParams[systematic][file][2]),
+            ROOT.RooVoigtian("voigtian_"+str(file),   "voigtian PDF for mass "+str(file), fitParams[systematic][file][0], fitParams[systematic][file][1], fitParams[systematic][file][3], fitParams[systematic][file][2]),
             ROOT.RooRealVar("signalEvents_"+str(file), "",  sigtree[systematic].GetEntries(),sigtree[systematic].GetEntries()/2, sigtree[systematic].GetEntries()*2),
             ]
 
@@ -222,17 +225,17 @@ def createPDFs(fileIn,systematic):
     '''
     ######################################################################################################
     #data = ROOT.RooDataSet("data_obs","data",ROOT.RooArgSet(fitParams["a40"][0]), ROOT.RooFit.Import(datatree))
-    Mmm[systematic] = ROOT.RooRealVar("mll","m_{#mu#mu}", 16, 66)
-    FF_Mmm[systematic] = ROOT.RooRealVar("mll","m_{#mu#mu}", 16, 66)
-    ZZ_Mmm[systematic] = ROOT.RooRealVar("mll","m_{#mu#mu}", 16, 66)
+    Mmm[systematic] = ROOT.RooRealVar("mll","m_{#mu#mu}", 18, 62)
+    FF_Mmm[systematic] = ROOT.RooRealVar("mll","m_{#mu#mu}", 18, 62)
+    ZZ_Mmm[systematic] = ROOT.RooRealVar("mll","m_{#mu#mu}", 18, 62)
     finalweight[systematic] = ROOT.RooRealVar("finalweight","finalweight", -1000.0, 1000.0)
 
     data[systematic]  = ROOT.RooDataSet("data_obs","data",ROOT.RooArgSet(Mmm[systematic]), ROOT.RooFit.Import(datatree[systematic]))
-    data[systematic].reduce("mll > 14 && mll < 63")
+    #data[systematic].reduce("mll > 14 && mll < 63")
 
     #bkg = ROOT.RooDataSet("bkg","bkg ",ROOT.RooArgSet(fitParams["a40"][0]), ROOT.RooFit.Import(bkgtree))
     bkg[systematic] = ROOT.RooDataSet("bkg","bkg",ROOT.RooArgSet(Mmm[systematic]), ROOT.RooFit.Import(bkgtree[systematic]))
-    bkg[systematic].reduce("mll > 14 && mll < 63")
+    #bkg[systematic].reduce("mll > 14 && mll < 63")
 
     varargset[systematic] = {}
     finalweight[systematic] = {}
@@ -245,11 +248,9 @@ def createPDFs(fileIn,systematic):
     FF_finalweight[systematic] = ROOT.RooRealVar("finalweight","finalweight", -1000.0, 1000.0)
     FF[systematic] = ROOT.RooDataSet("FF","FF",ROOT.RooArgSet(FF_Mmm[systematic],FF_finalweight[systematic]), ROOT.RooFit.Import(FFtree[systematic]), ROOT.RooFit.WeightVar("finalweight"))
     #FF.reduce("mll > 30 && mll < 40")
-    FF[systematic].reduce("mll > 14 && mll < 63")
     ZZ_finalweight[systematic] = ROOT.RooRealVar("finalweight","finalweight", -1000.0, 1000.0)
     ZZ[systematic] = ROOT.RooDataSet("ZZ","ZZ",ROOT.RooArgSet(ZZ_Mmm[systematic],ZZ_finalweight[systematic]), ROOT.RooFit.Import(ZZtree[systematic]), ROOT.RooFit.WeightVar("finalweight"))
     #FF.reduce("mll > 30 && mll < 40")
-    ZZ[systematic].reduce("mll > 14 && mll < 63")
 
     ######################################################################################################
     '''FF Fit
@@ -268,7 +269,7 @@ def createPDFs(fileIn,systematic):
     # c2_bkg[systematic] = ROOT.RooRealVar("c2_bkg_"+systematic,   "coeff. of bernstein 2",0.0,-100.0,100.0)
     # c3_bkg[systematic] = ROOT.RooRealVar("c3_bkg_"+systematic,   "coeff. of bernstein 3",0.0,-100.0,100.0)
 
-    c0_bkg[systematic] = ROOT.RooRealVar("c0_bkg_"+systematic,   "coeff. of bernstein 0",0.0,0.0,1000000.0) # this needs to be at most unity
+    c0_bkg[systematic] = ROOT.RooRealVar("c0_bkg_"+systematic,   "coeff. of bernstein 0",0.0,-1000000.0,1000000.0) # this needs to be at most unity
     c1_bkg[systematic] = ROOT.RooRealVar("c1_bkg_"+systematic,  "coeff. of bernstein 1",0.0,-1000000.0,1000000.0)
     c2_bkg[systematic] = ROOT.RooRealVar("c2_bkg_"+systematic,   "coeff. of bernstein 2",0.0,-1000000.0,1000000.0)
     c3_bkg[systematic] = ROOT.RooRealVar("c3_bkg_"+systematic,   "coeff. of bernstein 3",0.0,-1000000.0,1000000.0)
@@ -370,7 +371,7 @@ def createPDFs(fileIn,systematic):
     # c2_ZZ[systematic] = ROOT.RooRealVar("c2_ZZ_"+systematic,   "coeff. of bernstein 2",0.0,-100.0,100.0)
     # c3_ZZ[systematic] = ROOT.RooRealVar("c3_ZZ_"+systematic,   "coeff. of bernstein 3",0.0,-100.0,100.0)
 
-    c0_ZZ[systematic] = ROOT.RooRealVar("c0_ZZ_"+systematic,   "coeff. of bernstein 0",0.0,0.0,1000000.0)
+    c0_ZZ[systematic] = ROOT.RooRealVar("c0_ZZ_"+systematic,   "coeff. of bernstein 0",0.0,-1000000.0,1000000.0)
     c1_ZZ[systematic] = ROOT.RooRealVar("c1_ZZ_"+systematic,  "coeff. of bernstein 1",0.0,-1000000.0,1000000.0)
     c2_ZZ[systematic] = ROOT.RooRealVar("c2_ZZ_"+systematic,   "coeff. of bernstein 2",0.0,-1000000.0,1000000.0)
     c3_ZZ[systematic] = ROOT.RooRealVar("c3_ZZ_"+systematic,   "coeff. of bernstein 3",0.0,-1000000.0,1000000.0)
@@ -416,9 +417,9 @@ def createPDFs(fileIn,systematic):
     #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic],c3_ZZ_sq[systematic])) #constant only
     #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic])) #constant only
     #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic],c3_ZZ_sq[systematic])) #constant only
-    #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic],c3_ZZ[systematic])) #constant only
+    ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic],c3_ZZ[systematic])) #constant only
     #ZZfit[systematic] = ROOT.RooPolynomial("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic],c3_ZZ[systematic])) #constant only
-    ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic])) #constant only
+    #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic])) #constant only
     #ZZfit[systematic] = ROOT.RooPolynomial("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic],c3_ZZ[systematic])) #constant only
     #ZZfit[systematic] = ROOT.RooPolynomial("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic])) #constant only
     ######################################################################################################
@@ -438,8 +439,8 @@ def createPDFs(fileIn,systematic):
                             fitParams[systematic][mass][3], #alpha
                             fitParams[systematic][mass][2]) #sigma
 
-    # fitresult[systematic] = FFfit.fitTo(FF,ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
-    # print "FF fit results: "
+    # fitresult[systematic] = FFfit.fitTo(FF,ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2","migrad"), ROOT.RooFit.Save())
+    # print("FF fit results: ")
     # fitresult[systematic].Print()
     return
 
@@ -451,48 +452,50 @@ def createPDFs(fileIn,systematic):
 '''
 ######################################################################################################
 def createFitsAndPlots(systematic):
-    print "working on sys ",systematic
-    print "ZZ ",ZZ[systematic]
-    print "ZZ fit ",ZZfit[systematic]
-    print "FF ",FF[systematic]
-    print "FF fit ",FFfit[systematic]
+    print("working on sys ",systematic)
+    print("ZZ ",ZZ[systematic])
+    print("ZZ fit ",ZZfit[systematic])
+    print("FF ",FF[systematic])
+    print("FF fit ",FFfit[systematic])
     #print dir(FFfit)
     if args.optimize:
-        print "FIRST FIT"
+        print("FIRST FIT")
         if systematic=="Nominal":
             fitresultFF[systematic] = FFfit[systematic].fitTo(
-                FF[systematic],ROOT.RooFit.Range(16,66),
-                ROOT.RooFit.Minimizer("Minuit2"),
-                ROOT.RooFit.Save(),
-                ROOT.RooFit.SumW2Error(ROOT.kTRUE))
+                FF[systematic],ROOT.RooFit.Range(18,62),
+                ROOT.RooFit.Minimizer("Minuit2","migrad"),
+                ROOT.RooFit.Save()
+                #ROOT.RooFit.SumW2Error(ROOT.kTRUE)
+                )
             c0_bkg[systematic].setRange(c0_bkg[systematic].getValV()/1.5,c0_bkg[systematic].getValV()*1.5)
             #c0_bkg[systematic].setRange(0.0,1.0)
             c1_bkg[systematic].setRange(c1_bkg[systematic].getValV()/1.50,c1_bkg[systematic].getValV()*1.50)
             c2_bkg[systematic].setRange(c2_bkg[systematic].getValV()/1.50,c2_bkg[systematic].getValV()*1.50)
             c3_bkg[systematic].setRange(c3_bkg[systematic].getValV()/1.50,c3_bkg[systematic].getValV()*1.50)
-            print "Found optimal ranges"
+            print("Found optimal ranges")
             #FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg_sq[systematic],c1_bkg_sq[systematic],c2_bkg_sq[systematic],c3_bkg_sq[systematic])) #constant only
             FFfit[systematic] = ROOT.RooBernstein("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic],c3_bkg[systematic])) #constant only
             #FFfit[systematic] = ROOT.RooPolynomial("FFfit_"+systematic,"FFfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_bkg[systematic],c1_bkg[systematic],c2_bkg[systematic],c3_bkg[systematic])) #constant only
 
         fitresultZZ[systematic] = ZZfit[systematic].fitTo(ZZ[systematic],
-            ROOT.RooFit.Range(16,66),
-            ROOT.RooFit.Minimizer("Minuit2"),
-            ROOT.RooFit.Save(),
-            ROOT.RooFit.SumW2Error(ROOT.kTRUE))
+            ROOT.RooFit.Range(18,62),
+            ROOT.RooFit.Minimizer("Minuit2","migrad"),
+            ROOT.RooFit.Save()
+            #ROOT.RooFit.SumW2Error(ROOT.kTRUE)
+            )
 
         # for mass in sigIn[systematic].keys():
         #     fitresultsig[mass]={}
         #     fitresultsig[mass][systematic] = sigfit[systematic][mass].fitTo(sig[systematic][mass],
         #         ROOT.RooFit.Range(sigIn[systematic][mass][1],sigIn[systematic][mass][2]),
-        #         ROOT.RooFit.Minimizer("Minuit2"),
+        #         ROOT.RooFit.Minimizer("Minuit2","migrad"),
         #         ROOT.RooFit.Save())
 
-        c0_ZZ[systematic].setRange(c0_ZZ[systematic].getValV()/1.125,c0_ZZ[systematic].getValV()*1.125)
+        c0_ZZ[systematic].setRange(c0_ZZ[systematic].getValV()/1.50,c0_ZZ[systematic].getValV()*1.50)
         #c0_ZZ[systematic].setRange(0.0,1.0)
-        c1_ZZ[systematic].setRange(c1_ZZ[systematic].getValV()/1.1250,c1_ZZ[systematic].getValV()*1.1250)
-        c2_ZZ[systematic].setRange(c2_ZZ[systematic].getValV()/1.1250,c2_ZZ[systematic].getValV()*1.1250)
-        c3_ZZ[systematic].setRange(c3_ZZ[systematic].getValV()/1.1250,c3_ZZ[systematic].getValV()*1.1250)
+        c1_ZZ[systematic].setRange(c1_ZZ[systematic].getValV()/1.500,c1_ZZ[systematic].getValV()*1.500)
+        c2_ZZ[systematic].setRange(c2_ZZ[systematic].getValV()/1.500,c2_ZZ[systematic].getValV()*1.500)
+        c3_ZZ[systematic].setRange(c3_ZZ[systematic].getValV()/1.500,c3_ZZ[systematic].getValV()*1.500)
 
         #ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ_sq[systematic],c1_ZZ_sq[systematic],c2_ZZ_sq[systematic],c3_ZZ_sq[systematic]))
         ZZfit[systematic] = ROOT.RooBernstein("ZZfit_"+systematic,"ZZfit_"+systematic,Mmm[systematic],ROOT.RooArgList(c0_ZZ[systematic],c1_ZZ[systematic],c2_ZZ[systematic],c3_ZZ[systematic]))
@@ -504,24 +507,24 @@ def createFitsAndPlots(systematic):
         ''' FF Plotting and Fitting Area
         '''
         ######################################################################################################
-        overmass[systematic] = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total", 16.0, 66.0)
-        #overmass[systematic] = ROOT.RooRealVar("MH",    "m_{#mu #mu} Total", 38.0, 42.0)
-        massFrame[systematic] = overmass[systematic].frame()
+        #overmass[systematic] = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total", 18.0, 62.0)
+        massFrame[systematic] = Mmm[systematic].frame()
+        massFrame[systematic].SetTitle("Fake Factor")
         #massFrame[systematic] = fitParams["a40"][0].frame()
         c = ROOT.TCanvas("c", "", 600, 600)
         c.cd()
         ROOT.gStyle.SetOptStat(1)
         ROOT.gStyle.SetOptFit(1)
         massFrame[systematic].Draw()
-        massFrame[systematic] = overmass[systematic].frame()
 
         ROOT.gPad.SetLeftMargin(0.15)
         massFrame[systematic].GetYaxis().SetTitleOffset(1.6)
+        massFrame[systematic].GetXaxis().SetTitle("M_{#mu#mu}")
+        #massFrame[systematic].GetYaxis().SetTitle("M_{#mu#mu}")
         ROOT.TGaxis().SetMaxDigits(2)
 
         #plotting data points
         #FF[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(16))
-        FF[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(10))
 
 
         # nll = 0.0
@@ -534,10 +537,10 @@ def createFitsAndPlots(systematic):
         # c3_bkg[systematic].setVal(10.0)
         # c3_bkg[systematic].setRange(-1000.0,1000.0)
 
-        #fitresult[systematic] = FFfit[systematic].fitTo(FF[systematic],ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save(),ROOT.RooFit.SumW2Error(ROOT.kTRUE))
+        #fitresult[systematic] = FFfit[systematic].fitTo(FF[systematic],ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2","migrad"), ROOT.RooFit.Save(),ROOT.RooFit.SumW2Error(ROOT.kTRUE))
         fitresultFF[systematic] = FFfit[systematic].fitTo(
-            FF[systematic],ROOT.RooFit.Range(16,66),
-            ROOT.RooFit.Minimizer("Minuit2"),
+            FF[systematic],ROOT.RooFit.Range(18,62),
+            ROOT.RooFit.Minimizer("Minuit2","migrad"),
             ROOT.RooFit.Save(),
             ROOT.RooFit.SumW2Error(ROOT.kTRUE))
         #fitresult[systematic] = FFfit.fitTo(FF)
@@ -546,32 +549,29 @@ def createFitsAndPlots(systematic):
             c1_bkg[systematic].setError(abs(c1_bkg[systematic].getValV()*0.50))
             c2_bkg[systematic].setError(abs(c2_bkg[systematic].getValV()*0.50))
             c3_bkg[systematic].setError(abs(c3_bkg[systematic].getValV()*0.50))
-        print "FF fit results: "
+        print("FF fit results: ")
         fitresultFF[systematic].Print()
         #cormat = ROOT.TMatrixDSym(fitresultFF[systematic].correlationMatrix())
-        #print "FF fit correclation matrix: "
+        #print("FF fit correclation matrix: ")
         #cormat.Print()
         #ll = ROOT.RooLinkedList()
-        #print "FF fit minNll: ",fitresultFF[systematic].minNll()
+        #print("FF fit minNll: ",fitresultFF[systematic].minNll())
         # chi2 = FFfit[systematic].createChi2(FF[systematic],ll)
-        # print "FF create chi 2: "
-        # chi2.Print()
-        #X2fitresult[systematic] = FFfit[systematic].chi2FitTo(FF[systematic],ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
-        #X2fitresult[systematic] = getattr(FFfit[systematic],"chi2FitTo")(FF[systematic],ROOT.RooLinkedList(ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save()))
-        # hist = FF[systematic].binnedClone()
-        # X2fitresult = getattr(FFfit[systematic],"chi2FitTo")(hist,ll)
-        # print "Chi square fit "
-        # print X2fitresult
+        # print("FF create chi 2: ")
+        #FF[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(10))
+        FF[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(FF[systematic].numEntries()-5))
+        #FF[systematic].plotOn(massFrame[systematic])
 
-        FFfit[systematic].paramOn(massFrame[systematic])
-        FFfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kGreen),
-                     ROOT.RooFit.LineStyle(ROOT.kDashed),
-                     ROOT.RooFit.VisualizeError(fitresultFF[systematic],1,ROOT.kFALSE),
-                     ROOT.RooFit.FillColor(ROOT.kOrange),
-                     ROOT.RooFit.DrawOption("F"))
-        FFfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kBlue))
+        # FFfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kGreen),
+        #              ROOT.RooFit.LineStyle(ROOT.kDashed),
+        #              ROOT.RooFit.VisualizeError(fitresultFF[systematic],1,ROOT.kFALSE),
+        #              #ROOT.RooFit.VisualizeError(fitresultFF[systematic],1,ROOT.kTRUE),
+        #              ROOT.RooFit.FillColor(ROOT.kOrange),
+        #              ROOT.RooFit.DrawOption("F"))
+        #FFfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kBlue))
         #FF[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(16))
-        FF[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(10))
+        FFfit[systematic].paramOn(massFrame[systematic])
+        FFfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kRed),ROOT.RooFit.Range(20,60))
         massFrame[systematic].Draw()
 
         c.SaveAs("DiMuonMass_full_FF_"+systematic+args.output+".pdf")
@@ -582,20 +582,19 @@ def createFitsAndPlots(systematic):
     ''' ZZ Plotting and Fitting Area
     '''
     ######################################################################################################
-    overmass[systematic] = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total", 16.0, 66.0)
-    massFrame[systematic] = overmass[systematic].frame()
+    massFrame[systematic] = Mmm[systematic].frame()
+    massFrame[systematic].SetTitle("Irreducible "+str(systematic))
     c = ROOT.TCanvas("c", "", 600, 600)
     c.cd()
     ROOT.gStyle.SetOptStat(1)
     ROOT.gStyle.SetOptFit(1)
     massFrame[systematic].Draw()
-    massFrame[systematic] = overmass[systematic].frame()
+    massFrame[systematic].GetXaxis().SetTitle("M_{#mu#mu}")
 
-    ZZ[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(16))
 
     fitresultZZ[systematic] = ZZfit[systematic].fitTo(ZZ[systematic],
-                ROOT.RooFit.Range(16,66),
-                ROOT.RooFit.Minimizer("Minuit2"),
+                ROOT.RooFit.Range(18,62),
+                ROOT.RooFit.Minimizer("Minuit2","migrad"),
                 ROOT.RooFit.Save(),
                 ROOT.RooFit.SumW2Error(ROOT.kTRUE))
     if args.seterror:
@@ -604,16 +603,20 @@ def createFitsAndPlots(systematic):
         c2_ZZ[systematic].setError(abs(c2_ZZ[systematic].getValV()*0.50))
         c3_ZZ[systematic].setError(abs(c3_ZZ[systematic].getValV()*0.50))
 
-    print "ZZ fit results:"
+    print("ZZ fit results:")
     fitresultZZ[systematic].Print()
+    #ZZ[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(16)
+    ZZ[systematic].plotOn(massFrame[systematic])
 
     ZZfit[systematic].paramOn(massFrame[systematic])
-    ZZfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kGreen),
-                 ROOT.RooFit.LineStyle(ROOT.kDashed),
-                 ROOT.RooFit.VisualizeError(fitresultZZ[systematic],1,ROOT.kFALSE),
-                 ROOT.RooFit.FillColor(ROOT.kOrange))
-    ZZfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kBlue))
-    ZZ[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(16))
+    # ZZfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kGreen),
+    #              ROOT.RooFit.LineStyle(ROOT.kDashed),
+    #              ROOT.RooFit.VisualizeError(fitresultZZ[systematic],ROOT.RooArgSet(Mmm),1,ROOT.kFALSE),
+    #              #ROOT.RooFit.VisualizeError(fitresultZZ[systematic],1,ROOT.kTRUE),
+    #              ROOT.RooFit.FillColor(ROOT.kOrange))
+    #ZZfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kRed))
+    #ZZ[systematic].plotOn(massFrame[systematic],ROOT.RooFit.Binning(16))
+    ZZfit[systematic].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kRed),ROOT.RooFit.Range(20,60))
     massFrame[systematic].Draw()
 
     c.SaveAs("DiMuonMass_full_ZZ_"+systematic+args.output+".pdf")
@@ -624,37 +627,48 @@ def createFitsAndPlots(systematic):
     ''' Signal Plotting and Fitting Area
     '''
     ######################################################################################################
+    massFramesig[systematic]={}
+    fitresultsig[systematic]={}
     for mass in sigIn[systematic].keys():
-        fitresultsig[mass]={}
-        overmass[systematic] = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total", sigIn[systematic][mass][1], sigIn[systematic][mass][2])
-        massFrame[systematic] = overmass[systematic].frame()
-        massFrame[systematic].Draw()
-        massFrame[systematic] = overmass[systematic].frame()
-
-        sig[systematic][mass].plotOn(massFrame[systematic])
-        fitresultsig[mass][systematic] = sigfit[systematic][mass].fitTo(sig[systematic][mass],
+        #Mmm[systematic].setRange(ROOT.RooFit.Range(sigIn[systematic][mass][1], sigIn[systematic][mass][2]))
+        #Mmm[systematic].setRange(sigIn[systematic][mass][1], sigIn[systematic][mass][2])
+        fitresultsig[systematic][mass] = sigfit[systematic][mass].fitTo(sig[systematic][mass],
                     ROOT.RooFit.Range(sigIn[systematic][mass][1],sigIn[systematic][mass][2]),
-                    ROOT.RooFit.Minimizer("Minuit2"),
+                    ROOT.RooFit.Minimizer("Minuit2","migrad"),
                     ROOT.RooFit.Save(),
                     ROOT.RooFit.SumW2Error(ROOT.kTRUE))
-        #fitresult[systematic] = sigfit[mass].fitTo(sig[mass],ROOT.RooFit.ExternalConstraints(ROOT.RooArgSet(constraint_signal_0)),ROOT.RooFit.Range(sigIn[mass][1],sigIn[mass][2]), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+        print("signal fit value mean",fitParams[systematic][mass][1].getVal()," error ",fitParams[systematic][mass][1].getError())
+        print("signal fit value sigma",fitParams[systematic][mass][2].getVal()," error ",fitParams[systematic][mass][2].getError())
+        print("sig "+mass+" fit results: ")
+        fitresultsig[systematic][mass].Print()
 
-        sigfit[systematic][mass].paramOn(massFrame[systematic])
+        massFramesig[systematic][mass] = fitParams[systematic][mass][0].frame(ROOT.RooFit.Range(sigIn[systematic][mass][1], sigIn[systematic][mass][2]))
+
+        #overmass[systematic] = ROOT.RooRealVar("mll",    "Signal m_{#mu#mu} "+str(systematic), sigIn[systematic][mass][1], sigIn[systematic][mass][2])
+        #massFramesig[systematic][mass] = overmass[systematic].frame()
+        csig = ROOT.TCanvas("csig", "", 600, 600)
+        csig.cd()
+        ROOT.gStyle.SetOptStat(1)
+        ROOT.gStyle.SetOptFit(1)
+        massFramesig[systematic][mass].Draw()
+        massFramesig[systematic][mass].SetTitle("Signal "+str(systematic)+" "+str(mass))
+        massFramesig[systematic][mass].GetXaxis().SetTitle("M_{#mu#mu}")
+
+        sig[systematic][mass].plotOn(massFramesig[systematic][mass])
+        sigfit[systematic][mass].paramOn(massFramesig[systematic][mass])
+        sigfit[systematic][mass].plotOn(massFramesig[systematic][mass],ROOT.RooFit.LineColor(ROOT.kBlue), ROOT.RooFit.LineStyle(ROOT.kDashed))
+        #fitresult[systematic] = sigfit[mass].fitTo(sig[mass],ROOT.RooFit.ExternalConstraints(ROOT.RooArgSet(constraint_signal_0)),ROOT.RooFit.Range(sigIn[mass][1],sigIn[mass][2]), ROOT.RooFit.Minimizer("Minuit2","migrad"), ROOT.RooFit.Save())
+
         #cout<< rrv->getVal() <<"  +/-  "<<rrv->getError();
-        print "sig "+mass+" fit results: "
-        fitresultsig[mass][systematic].Print()
 
 
-        print "signal fit value mean",fitParams[systematic][mass][1].getVal()," error ",fitParams[systematic][mass][1].getError()
-        print "signal fit value sigma",fitParams[systematic][mass][2].getVal()," error ",fitParams[systematic][mass][2].getError()
 
-        sigfit[systematic][mass].plotOn(massFrame[systematic], ROOT.RooFit.LineColor(ROOT.kBlue), ROOT.RooFit.LineStyle(ROOT.kDashed))
+        massFramesig[systematic][mass].Draw()
+        csig.Draw()
 
-        massFrame[systematic].Draw()
-
-        c.SaveAs("DiMuonMass_sig_"+mass+"_"+systematic+args.output+".pdf")
-        c.SaveAs("DiMuonMass_sig_"+mass+"_"+systematic+args.output+".png")
-        c.Clear()
+        csig.SaveAs("DiMuonMass_sig_"+mass+"_"+systematic+args.output+".pdf")
+        csig.SaveAs("DiMuonMass_sig_"+mass+"_"+systematic+args.output+".png")
+        csig.Clear()
 
 
 
@@ -667,22 +681,25 @@ def createFitsAndPlots(systematic):
 def createInterpolation(signalpackage):
     from array import array
 
-    meanfit[systematic] = ROOT.TF1("meanfit_"+systematic,"pol1",16,66)
+    meanfit[systematic] = ROOT.TF1("meanfit_"+systematic,"pol1",18,62)
     #normfit = ROOT.TF1("normfit","pol0",0.00001,100000.0)
-    normfit[systematic] = ROOT.TF1("normfit_"+systematic,"pol3",16,66)
-    sigmafit[systematic] = ROOT.TF1("sigmafit_"+systematic,"pol3",16,66)
+    normfit[systematic] = ROOT.TF1("normfit_"+systematic,"pol3",18,62)
+    sigmafit[systematic] = ROOT.TF1("sigmafit_"+systematic,"pol3",18,62)
+    alphafit[systematic] = ROOT.TF1("alphafit_"+systematic,"pol3",18,62)
     meangraph[systematic] = ROOT.TGraphErrors()
     normgraph[systematic] = ROOT.TGraphErrors()
     sigmagraph[systematic] = ROOT.TGraphErrors()
+    alphagraph[systematic] = ROOT.TGraphErrors()
 
     for num, mass in enumerate(sigIn[systematic].keys()):
        meangraph[systematic].SetPoint(num,float(mass.split("a")[1]),fitParams[systematic][mass][1].getVal())
        meangraph[systematic].SetPointError(num,1.0,fitParams[systematic][mass][1].getError())
-       #print "sig sum entries ",sig[mass].sumEntries()
        normgraph[systematic].SetPoint(num,float(mass.split("a")[1]),sig[systematic][mass].sumEntries())
        normgraph[systematic].SetPointError(num,1.0,np.sqrt(sig[systematic][mass].sumEntries()))
        sigmagraph[systematic].SetPoint(num,float(mass.split("a")[1]),fitParams[systematic][mass][2].getVal())
        sigmagraph[systematic].SetPointError(num,1.0,np.sqrt(fitParams[systematic][mass][2].getError()))
+       alphagraph[systematic].SetPoint(num,float(mass.split("a")[1]),fitParams[systematic][mass][3].getVal())
+       alphagraph[systematic].SetPointError(num,1.0,np.sqrt(fitParams[systematic][mass][3].getError()))
 
     c = ROOT.TCanvas("c", "", 600, 600)
     c.cd()
@@ -726,6 +743,18 @@ def createInterpolation(signalpackage):
     c.SaveAs("DiMuonMass_SigmaConstraint_"+systematic+args.output+".png")
     c.Clear()
 
+    alphagraph[systematic].Draw("AP")
+    alphagraph[systematic].Fit(alphafit[systematic])
+    alphagraph[systematic].SetName("alpha")
+    alphagraph[systematic].SetTitle("alpha")
+    alphagraph[systematic].GetXaxis().SetTitle("Mass")
+    alphagraph[systematic].GetYaxis().SetTitle("Alpha Fit Parameter")
+    alphafit[systematic].Draw("same")
+
+    c.SaveAs("DiMuonMass_AlphaConstraint_"+systematic+args.output+".pdf")
+    c.SaveAs("DiMuonMass_AlphaConstraint_"+systematic+args.output+".png")
+    c.Clear()
+
     ######################################################################################################
     ''' Generating Signal Points from Interpolation
     '''
@@ -741,15 +770,15 @@ def createInterpolation(signalpackage):
 
     #try the roo formula var down below when importing into rooworkspace
     #I need this for EACH mass point? like for the constants in the RooFormulaVar?
-    MH[systematic] = ROOT.RooRealVar("MH","MH_"+systematic, 18, 63)
-    Mll[systematic] = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total_"+systematic, 16.0, 66.0)
+    MH[systematic] = ROOT.RooRealVar("MH","MH_"+systematic, 18, 62)
+    Mll[systematic] = ROOT.RooRealVar("mll",    "m_{#mu #mu} Total_"+systematic, 18.0, 62.0)
     MHerr[systematic] = ROOT.RooRealVar("MHerr_"+systematic,"MHerr_"+systematic, 0, -4 , 4)
     #ROOT.RooFormulaVar("intMean","(1+0.002*Mean)*(%.8f +%.8f*MH+%.8f*MH*MH+%.8f*MH*MH*MH)",ROOT.RooArgSet(fitParams[file][1])),
     mean_c0[systematic] = meanfit[systematic].GetParameter(0)
     mean_c1[systematic] = meanfit[systematic].GetParameter(1)
     mean_c2[systematic] = meanfit[systematic].GetParameter(2)
     mean_c3[systematic] = meanfit[systematic].GetParameter(3)
-    print " mean formula ({0:f}+ {1:f}*@0)".format(mean_c0[systematic],mean_c1[systematic])
+    print(" mean formula ({0:f}+ {1:f}*@0)".format(mean_c0[systematic],mean_c1[systematic]))
     intMean[systematic] = ROOT.RooFormulaVar("intMean_"+systematic,"intMean_"+systematic,"({0:f}+ {1:f}*@0)".format(mean_c0[systematic],mean_c1[systematic]),ROOT.RooArgList(MH[systematic]))
     sigma_c0[systematic] = sigmafit[systematic].GetParameter(0)
     sigma_c1[systematic] = sigmafit[systematic].GetParameter(1)
@@ -762,20 +791,21 @@ def createInterpolation(signalpackage):
     norm_c3[systematic] = normfit[systematic].GetParameter(3)
     #intNorm = ROOT.RooFormulaVar("intNorm","({0:f}+ {1:f}*@0+{2:f}*@0*@0+{3:f}*@0*@0*@0)".format(norm_c0,norm_c1,norm_c2,norm_c3),ROOT.RooArgSet(MH,MHerr))
     intNorm[systematic]  = ROOT.RooFormulaVar("signal_norm_"+systematic,"signal_norm_"+systematic,"({0:f}+ {1:f}*@0+{2:f}*@0*@0+{3:f}*@0*@0*@0)".format(norm_c0[systematic] ,norm_c1[systematic] ,norm_c2[systematic] ,norm_c3[systematic] ),ROOT.RooArgList(MH[systematic] ))
-    print "interpolated Mean formula ",intMean[systematic] .Print()
+    print("interpolated Mean formula ",intMean[systematic] .Print())
     intSignalTemplate[systematic]  = ROOT.RooGaussian("signal_"+systematic,   "signal_"+systematic,Mll[systematic] , intMean[systematic] , intSigma[systematic]  )
 
 
 
 
-    for mass in range(16,66):
+    #for mass in range(16,66):
+    for mass in range(18,62):
        massEval[systematic] = meanfit[systematic].Eval(mass)
        normEval[systematic] = normfit[systematic].Eval(mass)
        sigmaEval[systematic] = sigmafit[systematic].Eval(mass)
        signalnorms[systematic][str(mass)] = normEval[systematic]
-       print "evaluation of mean at ",mass," is ",massEval[systematic], " generating signal template "
-       print "evaluation of norm at ",mass," is ",normEval[systematic]
-       print "evaluation of sigma at ",mass," is ",sigmaEval[systematic]
+       print("evaluation of mean at ",mass," is ",massEval[systematic], " generating signal template ")
+       print("evaluation of norm at ",mass," is ",normEval[systematic])
+       print("evaluation of sigma at ",mass," is ",sigmaEval[systematic])
        x[systematic][str(mass)] = ROOT.RooRealVar("mll_"+systematic,    "mll_"+systematic,massEval[systematic]-2.0,massEval[systematic]+2.0)
        m[systematic][str(mass)] =ROOT.RooRealVar("mean_"+systematic,    "mean_"+systematic,massEval[systematic],"GeV")
        s[systematic][str(mass)] = ROOT.RooRealVar("sigma_"+systematic,    "sigma_"+systematic, sigmaEval[systematic],"GeV")
@@ -792,7 +822,7 @@ def createWorkspace(systematics):
     data["Nominal"].SetName("data_obs")
     getattr(workspace,'import')(data["Nominal"])
     for systematic in systematics:
-        print "importing pdfs into workspace ", systematic
+        print("importing pdfs into workspace ", systematic)
         if systematic=="Nominal":
             intSignalTemplate[systematic].SetName("signal")
             ZZfit[systematic].SetName("ZZfit")
@@ -846,12 +876,6 @@ def findPull(nominal,up,down):
     val_down = float(down.sumEntries())
     s1 = float(val_nom-val_up)/float(val_nom)
     s2 = float(val_nom - val_down)/float(val_nom)
-    # print "nom   ",val_nom
-    # print "up   ",val_up
-    # print "down   ",val_down
-    # print "s1 ",s1
-    # print "s2 ",s2
-
     return float(1.0000+np.sqrt(s1**2+s2**2))
 
 def findAsyPull(nominal,sys):
@@ -862,8 +886,8 @@ def findAsyPull(nominal,sys):
 
 
 def createCards():
-    masses = sigIn["Nominal"].keys()
-    masses.sort()
+    #masses = sigIn["Nominal"].keys()
+    #masses.sort()
     ##Make the datacard
     outFile = open("datacard_full_"+args.output+".txt","w")#write mode
 
@@ -899,7 +923,6 @@ def createCards():
                    "scale_t_1prong","scale_t_1prong1pizero",
                    "scale_t_3prong","scale_t_3prong1pizero"]
     for systematic in systematics:
-        print systematic
         signalpullup   = findPull(sig["Nominal"]["a40"],sig[systematic+"Up"]["a40"],sig[systematic+"Down"]["a40"])
         #signalpulldown = findPull(sig["Nominal"]["a40"],sig[systematic+"Down"]["a40"])
         #FFpullup       = findPull(FF["Nominal"],FF[systematic+"Up"])
@@ -985,17 +1008,19 @@ if __name__ == "__main__":
         for systematic in systematics:
             createPDFs(fileIn,systematic)
 
-        print "pdfs ",FF
-        print "fits ",FFfit
-        print "trying a fit"
-        #fitresult[systematic] = FFfit["Nominal"].fitTo(FF["Nominal"],ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2"), ROOT.RooFit.Save())
+        print("pdfs ",FF)
+        print("fits ",FFfit)
+        print("trying a fit")
+        #fitresult[systematic] = FFfit["Nominal"].fitTo(FF["Nominal"],ROOT.RooFit.Range(16,66), ROOT.RooFit.Minimizer("Minuit2","migrad"), ROOT.RooFit.Save())
 
         for systematic in systematics:
-            print "working on systematic ",systematic
+            print("working on systematic ",systematic)
             createFitsAndPlots(systematic)
             createInterpolation(systematic)
+        # createFitsAndPlots("Nominal")
+        # createInterpolation("Nominal")
 
-        print "done with pdfs and interpolation"
+        print("done with pdfs and interpolation")
         createWorkspace(systematics)
     if args.cards:
         createCards()

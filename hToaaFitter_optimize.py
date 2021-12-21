@@ -31,7 +31,10 @@ parser.add_argument("-workspace",  "--workspace", default=True,action='store_fal
 parser.add_argument("-opt",  "--optimize", default=False,action='store_true',  help="do double fit")
 parser.add_argument("-postOpt",  "--postOptimize", default=False,action='store_true',  help="create datacards and workspaces after optimization")
 parser.add_argument("-seterror",  "--seterror", default=False,action='store_true',  help="save error on background to half of nominal fit value")
-parser.add_argument("-ss",  "--signalScale", default=1.0,  help="Scale the Signal")
+parser.add_argument("-bkgo",  "--bkgOrder", default=1,  help="oder of the background")
+parser.add_argument("-bkgt",  "--bkgType", default="bernstein",  help="shape of background")
+parser.add_argument("-irbkgo",  "--irbkgOrder", default=1,  help="oder of the background")
+parser.add_argument("-irbkgt",  "--irbkgType", default="bernstein",  help="shape of background")
 args = parser.parse_args()
 
 ROOT.RooMsgService.instance().setGlobalKillBelow(ROOT.RooFit.WARNING)
@@ -130,3 +133,39 @@ if __name__ == "__main__":
         # createWorkspace(systematics)
     else:
         print("creating datacards and workspaces")
+
+        ZZ = shape()
+        ZZ.connectFile(args.input)
+        ZZ.fillTree(args.inputDir+"/"+systematic+"_irBkg")
+        if not args.auto:
+            ZZ.fillPDFs(args.irbkgType,args.irbkgOrder,"irBkg")
+        else:
+            print("trying auto parameter ")
+        ZZ.fillDataset("irBkg")
+        ZZ.fitToData("irBkg")
+        ZZ.finalFitToData("irBkg")
+
+        FF = shape()
+        FF.connectFile(args.input)
+        FF.fillTree(args.inputDir+"/"+systematic+"_Bkg")
+        if not args.auto:
+            FF.fillPDFs(args.bkgType,args.bkgOrder,"Bkg")
+        else:
+            print("trying auto parameter ")
+        FF.fillDataset("Bkg")
+        FF.fitToData("Bkg")
+        FF.finalFitToData("Bkg")
+
+        #creating container for all the functions, pdfs, and worksapces
+        off = office()
+        off.name = args.output
+        off.setFunctionName(FF.pdf[args.bkgType+"_"+str(args.bkgOrder)],"FF_Nominal")
+        off.setFunctionName(ZZ.pdf[args.irbkgType+"_"+str(args.irbkgOrder)],"ZZ_Nominal")
+        off.hireFunction(FF.pdf[args.bkgType+"_"+str(args.bkgOrder)])
+        off.hireFunction(ZZ.pdf[args.irbkgType+"_"+str(args.irbkgOrder)])
+
+        off.createTxtfile()
+        off.printCards()
+
+        off.wsp.Print()
+        off.wsp.writeToFile("HToAAWorkspace_full_"+args.output+".root")

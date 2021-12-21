@@ -34,18 +34,86 @@ parser.add_argument("-ss",  "--signalScale", default=1.0,  help="Scale the Signa
 args = parser.parse_args()
 
 ROOT.RooMsgService.instance().setGlobalKillBelow(ROOT.RooFit.WARNING)
+
+#shared functional methods
+def findPull(nominal,up,down):
+    import numpy as np
+    val_nom = float(nominal.sumEntries())
+    val_up = float(up.sumEntries())
+    val_down = float(down.sumEntries())
+    s1 = float(val_nom-val_up)/float(val_nom)
+    s2 = float(val_nom - val_down)/float(val_nom)
+    return float(1.0000+np.sqrt(s1**2+s2**2))
+
+#classes for interface
 class office():
     def __init__(self):
         self.wsp = ROOT.RooWorkspace("w")
+        self.name = "defaultname"
         self.info = {} #going to contain the year and channel
         #outFile = open("datacard_full_"+args.output+".txt","w")#write mode
-        #self.txtfile = open("","w")
+        self.txtfile = ""
+        self.systematics = [ "scale_e","scale_m_etalt1p2",
+                       "scale_m_eta1p2to2p1","scale_m_etagt2p1",
+                       "scale_t_1prong","scale_t_1prong1pizero",
+                       "scale_t_3prong","scale_t_3prong1pizero"]
+
+    def createTxtfile(self):
+        self.txtfile = open("datacard_full_"+self.name+".txt","w")
+        return
+
+    def setFunctionName(self,function,name):
+        function.SetName(str(name))
+        return
 
     def hireFunction(self,function):
         getattr(self.wsp,"import")(function)
         return
 
     def printCards(self):
+        self.txtfile.write("imax 1\n") #number of bins - only one category ... no control region
+        self.txtfile.write("jmax 2\n") #number of processes minus 1
+        self.txtfile.write("kmax *\n") #number of nuisance parameters
+        self.txtfile.write("---------------\n")
+        self.txtfile.write("shapes * bin1 HToAAWorkspace_full_"+args.output+".root w:$PROCESS\n")
+        self.txtfile.write("---------------\n")
+
+        self.txtfile.write("bin         bin1   \n")
+        self.txtfile.write("observation   -1 \n") # for parametric fit this needs to be -1
+
+        self.txtfile.write("------------------------------\n")
+        self.txtfile.write("bin                    ")
+        self.txtfile.write(" bin1 ")
+        self.txtfile.write("bin1 bin1 \n")
+        self.txtfile.write("process                ")
+        self.txtfile.write(" signal                ZZfit      FFfit\n")
+        self.txtfile.write("process                ")
+        self.txtfile.write("0 1 2")
+        self.txtfile.write("\n")
+        self.txtfile.write("rate                   ")
+        self.txtfile.write("1 1 1 \n")
+        self.txtfile.write("------------------------------\n")
+        self.txtfile.write("lumi     lnN              1.01    1.01    1.01\n")
+
+        for systematic in self.systematics:
+            signalpullup   = findPull(sig["Nominal"]["a40"],sig[systematic+"Up"]["a40"],sig[systematic+"Down"]["a40"])
+            #signalpulldown = findPull(sig["Nominal"]["a40"],sig[systematic+"Down"]["a40"])
+            #FFpullup       = findPull(FF["Nominal"],FF[systematic+"Up"])
+            #FFpulldown     = findPull(FF["Nominal"],FF[systematic+"Down"])
+            ZZpullup       = findPull( ZZ["Nominal"],ZZ[systematic+"Up"],ZZ[systematic+"Down"])
+            #ZZpulldown     = findPull( ZZ["Nominal"],ZZ[systematic+"Down"])
+
+            outFile.write(systematic+"   lnN              {0:.9f}        {1:.9f}          -    \n".format(signalpullup,ZZpullup))
+
+        self.txtfile.write("c0_bkg_Nominal  param "+str(c0_bkg["Nominal"].getVal())+" "+str(c0_bkg["Nominal"].getError())+"\n")
+        self.txtfile.write("c1_bkg_Nominal  param "+str(c1_bkg["Nominal"].getVal())+" "+str(c1_bkg["Nominal"].getError())+"\n")
+        self.txtfile.write("c2_bkg_Nominal  param "+str(c2_bkg["Nominal"].getVal())+" "+str(c2_bkg["Nominal"].getError())+"\n")
+        self.txtfile.write("c3_bkg_Nominal  param "+str(c3_bkg["Nominal"].getVal())+" "+str(c3_bkg["Nominal"].getError())+"\n")
+
+        self.txtfile.write("c0_ZZ_Nominal  param "+str(c0_ZZ["Nominal"].getVal())+" "+str(c0_ZZ["Nominal"].getError())+"\n")
+        self.txtfile.write("c1_ZZ_Nominal  param "+str(c1_ZZ["Nominal"].getVal())+" "+str(c1_ZZ["Nominal"].getError())+"\n")
+        self.txtfile.write("c2_ZZ_Nominal  param "+str(c2_ZZ["Nominal"].getVal())+" "+str(c2_ZZ["Nominal"].getError())+"\n")
+        self.txtfile.write("c3_ZZ_Nominal  param "+str(c3_ZZ["Nominal"].getVal())+" "+str(c3_ZZ["Nominal"].getError())+"\n")
 
         return
 
@@ -65,6 +133,8 @@ class shape():
         self.tfile = ROOT.TFile()
         self.poi = ROOT.RooRealVar("mll","m_{#mu#mu}", 18, 62)
         self.pdf = {} # dictionary for various types of pdfs
+        self.nll = {} # dictionary for the nlls from the pdf fits
+        self.deltanll = {} # dictionary for the change in nlls from the pdf fits
         self.coeffs = {} # dictionary for RooRealVars
         self.data = ROOT.RooDataSet()
         self.fitresults = {} # dictionary to hold fit results from the PDFs
@@ -152,10 +222,14 @@ class shape():
         for fitresultkey,fitresult in self.fitresults.items():
             print("nll for type ",fitresultkey,"   ",fitresult.minNll())
             nllresults.write("nll for type "+str(fitresultkey)+"   "+str(fitresult.minNll())+"\n")
+            self.nll[fitresultkey] = fitresult.minNll()
         fitorder = list(self.fitresults.keys())
         for ordnum in range(len(fitorder)-1):
             print("\u0394nll  between  ",ordnum,"   and " ,ordnum+1,"   ",self.fitresults[fitorder[ordnum]].minNll()-self.fitresults[fitorder[ordnum+1]].minNll())
             nllresults.write("\u0394nll  between  "+str(ordnum)+"   and " +str(ordnum+1)+"   "+str(self.fitresults[fitorder[ordnum]].minNll()-self.fitresults[fitorder[ordnum+1]].minNll())+"\n")
+            self.deltanll[fitorder[ordnum]] = \
+                self.fitresults[fitorder[ordnum]].minNll()-self.fitresults[fitorder[ordnum+1]].minNll()
+
         return
 
     def createPlots(self,type,order,dist):
@@ -168,7 +242,8 @@ class shape():
         self.plotframe[type+"_"+str(order)].GetYaxis().SetTitleOffset(1.6)
         self.plotframe[type+"_"+str(order)].GetXaxis().SetTitle("M_{#mu#mu}")
         ROOT.TGaxis().SetMaxDigits(2)
-        self.data.plotOn(self.plotframe[type+"_"+str(order)],ROOT.RooFit.Binning(25))
+        #self.data.plotOn(self.plotframe[type+"_"+str(order)],ROOT.RooFit.Binning(25))
+        self.data.plotOn(self.plotframe[type+"_"+str(order)],ROOT.RooFit.Binning(16))
         self.pdf[type+"_"+str(order)].paramOn(self.plotframe[type+"_"+str(order)])
         self.pdf[type+"_"+str(order)].plotOn(self.plotframe[type+"_"+str(order)], ROOT.RooFit.LineColor(ROOT.kRed),ROOT.RooFit.Range(20,60))
         self.plotframe[type+"_"+str(order)].Draw()
@@ -177,4 +252,8 @@ class shape():
 
 
 
+        return
+    #look through the delta nlls and find the best value of the fit
+    def findBestFit(self):
+        print("scanning nlls")
         return
