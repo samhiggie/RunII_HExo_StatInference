@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     if not args.postOptimize:
         systematic = "Nominal"
-        ZZ = shape()
+        ZZ = shape("ZZ")
         ZZ.connectFile(args.input)
         ZZ.fillTree(args.inputDir+"/"+systematic+"_irBkg")
         ZZ.fillPDFs("bernstein",0,"irBkg")
@@ -156,9 +156,44 @@ if __name__ == "__main__":
         FF.fitToData("Bkg")
         FF.finalFitToData("Bkg")
 
+        sigIn[systematic]["a15"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a15"),13.0,17.0,15.0,ROOT.kRed]
+        sigIn[systematic]["a20"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a20"),18.0,22.0,20.0,ROOT.kOrange]
+        sigIn[systematic]["a25"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a25"),23.0,27.0,25.0,ROOT.kYellow]
+        sigIn[systematic]["a30"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a30"),28.0,32.0,30.0,ROOT.kGreen]
+        sigIn[systematic]["a35"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a35"),33.0,37.0,35.0,ROOT.kBlue]
+        sigIn[systematic]["a40"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a40"),38.0,42.0,40.0,ROOT.kMagenta]
+        sigIn[systematic]["a45"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a45"),43.0,47.0,45.0,ROOT.kViolet]
+        sigIn[systematic]["a50"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a50"),48.0,52.0,50.0,ROOT.kSpring]
+        sigIn[systematic]["a55"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a55"),53.0,57.0,55.0,ROOT.kCyan]
+        sigIn[systematic]["a60"] = [fileIn.Get(args.inputDir+"/"+systematic+"_a60"),58.0,62.0,60.0,ROOT.kAzure]
+
+        sigs = {}
+
+        for systematic in sigIn.keys():
+            for mass in sigIn[systematic].keys():
+                sigs[systematic+"_"+mass] = shape()
+                sigs.connectFile(args.input)
+                sigs.fillTree(args.inputDir+"/"+systematic+"_"+mass)
+                sigs.fillPDFs(args.bkgType,args.bkgOrder,"Bkg")
+                sigs.fillDataset("Bkg")
+        #sigs = shape()
+        #sigs.connectFile(args.input)
+        #sigs.fillTree(args.inputDir+"/"+systematic+"_Bkg")
+
+
+
         #creating container for all the functions, pdfs, and worksapces
+        shapes = {}
+        shapes[FF.name]=FF
+        shapes[ZZ.name]=ZZ
+        for key, sigshape in sigs.items():
+            shapes[sigshape.name]=sigshape
+
+
+
         off = office()
         off.name = args.output
+        off.loadShapes(shapes)
         off.setFunctionName(FF.pdf[args.bkgType+"_"+str(args.bkgOrder)],"FF_Nominal")
         off.setFunctionName(ZZ.pdf[args.irbkgType+"_"+str(args.irbkgOrder)],"ZZ_Nominal")
         off.hireFunction(FF.pdf[args.bkgType+"_"+str(args.bkgOrder)])

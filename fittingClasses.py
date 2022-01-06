@@ -57,6 +57,7 @@ class office():
                        "scale_m_eta1p2to2p1","scale_m_etagt2p1",
                        "scale_t_1prong","scale_t_1prong1pizero",
                        "scale_t_3prong","scale_t_3prong1pizero"]
+        self.shapes = {}
 
     def createTxtfile(self):
         self.txtfile = open("datacard_full_"+self.name+".txt","w")
@@ -66,11 +67,20 @@ class office():
         function.SetName(str(name))
         return
 
+    def loadShapes(self,shapes):
+        for shapename, shape in shapes.items():
+            self.shapes[shapename] = shape
+        return
+
     def hireFunction(self,function):
         getattr(self.wsp,"import")(function)
         return
 
     def printCards(self):
+        if not self.shapes:
+            print "dude... load those shapes first"
+            return
+            
         self.txtfile.write("imax 1\n") #number of bins - only one category ... no control region
         self.txtfile.write("jmax 2\n") #number of processes minus 1
         self.txtfile.write("kmax *\n") #number of nuisance parameters
@@ -95,39 +105,36 @@ class office():
         self.txtfile.write("------------------------------\n")
         self.txtfile.write("lumi     lnN              1.01    1.01    1.01\n")
 
+
         for systematic in self.systematics:
+            #signalpullup   = findPull(sig["Nominal"]["a40"],sig[systematic+"Up"]["a40"],sig[systematic+"Down"]["a40"])
             signalpullup   = findPull(sig["Nominal"]["a40"],sig[systematic+"Up"]["a40"],sig[systematic+"Down"]["a40"])
-            #signalpulldown = findPull(sig["Nominal"]["a40"],sig[systematic+"Down"]["a40"])
-            #FFpullup       = findPull(FF["Nominal"],FF[systematic+"Up"])
-            #FFpulldown     = findPull(FF["Nominal"],FF[systematic+"Down"])
+
+            # these are pdfs
+            #ZZpullup       = findPull( ZZ["Nominal"],ZZ[systematic+"Up"],ZZ[systematic+"Down"])
             ZZpullup       = findPull( ZZ["Nominal"],ZZ[systematic+"Up"],ZZ[systematic+"Down"])
-            #ZZpulldown     = findPull( ZZ["Nominal"],ZZ[systematic+"Down"])
 
             outFile.write(systematic+"   lnN              {0:.9f}        {1:.9f}          -    \n".format(signalpullup,ZZpullup))
 
-        self.txtfile.write("c0_bkg_Nominal  param "+str(c0_bkg["Nominal"].getVal())+" "+str(c0_bkg["Nominal"].getError())+"\n")
-        self.txtfile.write("c1_bkg_Nominal  param "+str(c1_bkg["Nominal"].getVal())+" "+str(c1_bkg["Nominal"].getError())+"\n")
-        self.txtfile.write("c2_bkg_Nominal  param "+str(c2_bkg["Nominal"].getVal())+" "+str(c2_bkg["Nominal"].getError())+"\n")
-        self.txtfile.write("c3_bkg_Nominal  param "+str(c3_bkg["Nominal"].getVal())+" "+str(c3_bkg["Nominal"].getError())+"\n")
 
-        self.txtfile.write("c0_ZZ_Nominal  param "+str(c0_ZZ["Nominal"].getVal())+" "+str(c0_ZZ["Nominal"].getError())+"\n")
-        self.txtfile.write("c1_ZZ_Nominal  param "+str(c1_ZZ["Nominal"].getVal())+" "+str(c1_ZZ["Nominal"].getError())+"\n")
-        self.txtfile.write("c2_ZZ_Nominal  param "+str(c2_ZZ["Nominal"].getVal())+" "+str(c2_ZZ["Nominal"].getError())+"\n")
-        self.txtfile.write("c3_ZZ_Nominal  param "+str(c3_ZZ["Nominal"].getVal())+" "+str(c3_ZZ["Nominal"].getError())+"\n")
+        for coeffkey, coeff in shape.coeffs:
+            self.txtfile.write(coeff.GetName()+" param "+str(coeff.getVal())+" "+str(coeff.getError())+"\n")
+
+        # self.txtfile.write("c1_bkg_Nominal  param "+str(c1_bkg["Nominal"].getVal())+" "+str(c1_bkg["Nominal"].getError())+"\n")
+        # self.txtfile.write("c2_bkg_Nominal  param "+str(c2_bkg["Nominal"].getVal())+" "+str(c2_bkg["Nominal"].getError())+"\n")
+        # self.txtfile.write("c3_bkg_Nominal  param "+str(c3_bkg["Nominal"].getVal())+" "+str(c3_bkg["Nominal"].getError())+"\n")
+        #
+        # self.txtfile.write("c0_ZZ_Nominal  param "+str(c0_ZZ["Nominal"].getVal())+" "+str(c0_ZZ["Nominal"].getError())+"\n")
+        # self.txtfile.write("c1_ZZ_Nominal  param "+str(c1_ZZ["Nominal"].getVal())+" "+str(c1_ZZ["Nominal"].getError())+"\n")
+        # self.txtfile.write("c2_ZZ_Nominal  param "+str(c2_ZZ["Nominal"].getVal())+" "+str(c2_ZZ["Nominal"].getError())+"\n")
+        # self.txtfile.write("c3_ZZ_Nominal  param "+str(c3_ZZ["Nominal"].getVal())+" "+str(c3_ZZ["Nominal"].getError())+"\n")
 
         return
 
 class shape():
-    def __init__(self):
+    def __init__(self,dist):
         self.name = ""
-        self.variables = []
-        self.vars={}
-        self.newvariables = {}
-        self.newvariablesbins = []
-        self.cuts = {}
-        self.newvarcuts = {}
-        self.binning = []
-        self.extraplots = {}
+        self.dist = dist
         self.systematic = "Nominal"
         self.tree = ROOT.TTree()
         self.tfile = ROOT.TFile()
