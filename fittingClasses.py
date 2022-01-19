@@ -78,9 +78,9 @@ class office():
 
     def printCards(self):
         if not self.shapes:
-            print "dude... load those shapes first"
+            print("dude... load those shapes first")
             return
-            
+
         self.txtfile.write("imax 1\n") #number of bins - only one category ... no control region
         self.txtfile.write("jmax 2\n") #number of processes minus 1
         self.txtfile.write("kmax *\n") #number of nuisance parameters
